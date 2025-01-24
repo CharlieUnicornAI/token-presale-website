@@ -85,9 +85,7 @@ const MainPage = () => {
       const tonAmount = parseFloat(inputValue);
       const estimatedUSDC = await getEstimatedTonToUSDC(tonAmount);
       if (estimatedUSDC) {
-        const feePercentage = 0.01;
-        const finalAmountTo = estimatedUSDC - estimatedUSDC * feePercentage;
-        const value = finalAmountTo * price;
+        const value = estimatedUSDC * price;
         setReceiveable(formatValue(value).toString());
       }
       return;
@@ -226,10 +224,7 @@ const MainPage = () => {
 
       const { payoutAddress, amountTo, rPayinAddress } = statusResponse;
       if (rPayinAddress === payinAddress && payoutAddress === usdcAddress) {
-        const feePercentage = 0.01;
-        const parsedAmountTo = parseFloat(amountTo);
-        const finalAmountTo = parsedAmountTo - parsedAmountTo * feePercentage;
-        await buy("USDC", finalAmountTo);
+        await buy("USDC", amountTo);
         toast.success("Buy Sucessful");
         window.location.reload();
       } else {

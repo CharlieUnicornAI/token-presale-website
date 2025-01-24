@@ -114,9 +114,7 @@ function useContract() {
       return new BrowserProvider(walletProvider);
     } else {
       // Use a public provider for read-only operations
-      return new ethers.JsonRpcProvider(
-        "https://rpc.ankr.com/base"
-      );
+      return new ethers.JsonRpcProvider("https://rpc.ankr.com/base");
     }
   };
 

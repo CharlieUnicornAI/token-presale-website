@@ -46,7 +46,7 @@ function App() {
   });
 
   return (
-    <TonConnectUIProvider manifestUrl="http://localhost:3000/tonconnect-manifest.json">
+    <TonConnectUIProvider manifestUrl="https://charlie-presale.vercel.app/tonconnect-manifest.json">
       <TonWalletProvider>
         <RoutesFile />
       </TonWalletProvider>

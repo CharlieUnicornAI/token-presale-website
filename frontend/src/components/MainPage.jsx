@@ -221,7 +221,7 @@ const MainPage = () => {
         if (statusResponse) {
           break;
         }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
       }
 
       const { payoutAddress, amountTo, rPayinAddress } = statusResponse;

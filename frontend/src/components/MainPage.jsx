@@ -48,110 +48,6 @@ const MainPage = () => {
   const { isTonWalletConnected, friendlyAddress, tonBalance, sendTon } =
     useCustomTonWallet();
 
-  const checkExchangeStatus = async (exchangeId, usdcAddress) => {
-    try {
-      const response = await axios.get(
-        `https://api.changenow.io/v2/exchange/by-id?id=${exchangeId}`,
-        {
-          headers: {
-            "x-changenow-api-key":
-              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
-          },
-        }
-      );
-      const { status, payoutAddress, amountTo, payinAddress } = response.data;
-      if (status === "finished") {
-        console.log("status response: ", response.data);
-        return {
-          payoutAddress,
-          amountTo,
-          rPayinAddress: payinAddress,
-        };
-      }
-      return null;
-    } catch (err) {
-      console.error("Error checking exchange status:", err);
-    }
-  };
-
-  const handleTon = async (usdcAddress, amount) => {
-    try {
-      debugger;
-      const response = await axios.post(
-        `https://api.changenow.io/v2/exchange`,
-        {
-          fromCurrency: "ton",
-          toCurrency: "usdc",
-          fromNetwork: "ton",
-          toNetwork: "base",
-          fromAmount: amount,
-          address: usdcAddress,
-          flow: "standard",
-        },
-        {
-          headers: {
-            "x-changenow-api-key":
-              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
-          },
-        }
-      );
-      const { payinAddress } = response.data;
-      if (!payinAddress) {
-        throw new Error("No payin address returned from ChangeNOW.");
-      }
-      const toNano = amount * 1_000_000_000;
-      await sendTon(toNano, payinAddress);
-      const exchangeId = response.data.id;
-      const statusResponse = await checkExchangeStatus(exchangeId, usdcAddress);
-      if (statusResponse) {
-        const { payoutAddress, amountTo, rPayinAddress } = statusResponse;
-        if (payoutAddress === payinAddress && rPayinAddress === usdcAddress) {
-          await buy("USDC", amountTo);
-          toast.success("Buy Sucessful");
-          window.location.reload();
-        }
-      }
-      toast.success("Buy error");
-    } catch (err) {
-      console.log("handleTon error: ", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get estimated USDC from TON
-  const getEstimatedTonToUSDC = async (tonAmount) => {
-    try {
-      const response = await axios.get(
-        `https://api.changenow.io/v2/exchange/estimated-amount`,
-        {
-          params: {
-            fromCurrency: "ton",
-            toCurrency: "usdc",
-            fromAmount: tonAmount,
-            toAmount: "",
-            fromNetwork: "ton",
-            toNetwork: "base",
-            flow: "fixed-rate",
-            type: "",
-            useRateId: "",
-          },
-          headers: {
-            "x-changenow-api-key":
-              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
-          },
-        }
-      );
-      const { toAmount } = response.data;
-      if (toAmount) {
-        return toAmount;
-      }
-      return null;
-    } catch (err) {
-      console.log("getEstimatedTonToUSDC error: ", err);
-    }
-  };
-
   // Handle change or other events
   const handlePaymentTypechange = async (type) => {
     setPaymentType(type);
@@ -189,7 +85,9 @@ const MainPage = () => {
       const tonAmount = parseFloat(inputValue);
       const estimatedUSDC = await getEstimatedTonToUSDC(tonAmount);
       if (estimatedUSDC) {
-        const value = estimatedUSDC * price;
+        const feePercentage = 0.01;
+        const finalAmountTo = estimatedUSDC - estimatedUSDC * feePercentage;
+        const value = finalAmountTo * price;
         setReceiveable(formatValue(value).toString());
       }
       return;
@@ -232,28 +130,140 @@ const MainPage = () => {
     }
   };
 
+  // Get estimated USDC from TON
+  const getEstimatedTonToUSDC = async (tonAmount) => {
+    try {
+      const response = await axios.get(
+        `https://api.changenow.io/v2/exchange/estimated-amount`,
+        {
+          params: {
+            fromCurrency: "ton",
+            toCurrency: "usdc",
+            fromAmount: tonAmount,
+            toAmount: "",
+            fromNetwork: "ton",
+            toNetwork: "base",
+            flow: "fixed-rate",
+            type: "",
+            useRateId: "",
+          },
+          headers: {
+            "x-changenow-api-key":
+              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
+          },
+        }
+      );
+      const { toAmount } = response.data;
+      if (toAmount) {
+        return toAmount;
+      }
+      return null;
+    } catch (err) {
+      console.log("getEstimatedTonToUSDC error: ", err);
+    }
+  };
+
+  const checkExchangeStatus = async (exchangeId) => {
+    try {
+      const response = await axios.get(
+        `https://api.changenow.io/v2/exchange/by-id?id=${exchangeId}`,
+        {
+          headers: {
+            "x-changenow-api-key":
+              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
+          },
+        }
+      );
+      const { status, payoutAddress, amountTo, payinAddress } = response.data;
+      if (status === "finished") {
+        return {
+          payoutAddress,
+          amountTo,
+          rPayinAddress: payinAddress,
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error("Error checking exchange status:", err);
+    }
+  };
+
+  const handleTon = async (usdcAddress, amount) => {
+    try {
+      const response = await axios.post(
+        `https://api.changenow.io/v2/exchange`,
+        {
+          fromCurrency: "ton",
+          toCurrency: "usdc",
+          fromNetwork: "ton",
+          toNetwork: "base",
+          fromAmount: amount,
+          address: usdcAddress,
+          flow: "standard",
+        },
+        {
+          headers: {
+            "x-changenow-api-key":
+              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
+          },
+        }
+      );
+      const { payinAddress } = response.data;
+      if (!payinAddress) {
+        throw new Error("No payin address");
+      }
+      const toNano = amount * 1_000_000_000;
+      await sendTon(toNano, payinAddress);
+      const exchangeId = response.data.id;
+      let statusResponse;
+      while (true) {
+        statusResponse = await checkExchangeStatus(exchangeId);
+        if (statusResponse) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+
+      const { payoutAddress, amountTo, rPayinAddress } = statusResponse;
+      if (rPayinAddress === payinAddress && payoutAddress === usdcAddress) {
+        const feePercentage = 0.01;
+        const parsedAmountTo = parseFloat(amountTo);
+        const finalAmountTo = parsedAmountTo - parsedAmountTo * feePercentage;
+        await buy("USDC", finalAmountTo);
+        toast.success("Buy Sucessful");
+        window.location.reload();
+      } else {
+        toast.error("Buy error");
+      }
+    } catch (err) {
+      console.log("handleTon error: ", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Main functions
   const handleBuy = async () => {
     setLoading(true);
-    if (paymenType == "ETH") {
+    if (paymenType === "ETH") {
       if (amount > maxBalance.eth) {
         toast.error("Not enough eth balance");
         setLoading(false);
         return;
       }
-    } else if (paymenType == "USDT") {
+    } else if (paymenType === "USDT") {
       if (amount > maxBalance.usdt) {
         toast.error("Not enough USDT balance");
         setLoading(false);
         return;
       }
-    } else if (paymenType == "USDC") {
+    } else if (paymenType === "USDC") {
       if (amount > maxBalance.busd) {
         toast.error("Not enough BUSD balance");
         setLoading(false);
         return;
       }
-    } else if (paymenType == "TON") {
+    } else if (paymenType === "TON") {
       if (Number(amount) > Number(tonBalance)) {
         toast.error("Not enough TON balance");
         setLoading(false);
@@ -261,6 +271,7 @@ const MainPage = () => {
       }
       if (parseFloat(amount) < 2.1) {
         toast.info("Amount must be more than 2.1 TON");
+        setLoading(false);
         return;
       }
       if (!isConnected || chainId !== base.id) {
@@ -1091,8 +1102,13 @@ const MainPage = () => {
                       name="amount"
                       type="number"
                       placeholder="0"
-                      className="bg-transparent w-[90%] md:w-full text-white placeholder-gray-300 outline-none px-2"
+                      className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
+                        loading || !isConnected
+                          ? "text-[#CCCCCC] cursor-not-allowed"
+                          : "text-white"
+                      }`}
                       value={amount}
+                      disabled={loading || !isConnected}
                       onChange={handlePaymentChange}
                     />
                     <img
@@ -1128,7 +1144,12 @@ const MainPage = () => {
                       placeholder="0"
                       value={receiveable}
                       onChange={handlePaymentChange}
-                      className="bg-transparent text-white w-[90%] md:w-full placeholder-gray-300 flex-1 outline-none px-2"
+                      disabled={loading || !isConnected}
+                      className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
+                        loading || !isConnected
+                          ? "text-[#CCCCCC] cursor-not-allowed"
+                          : "text-white"
+                      }`}
                     />
                     <img
                       src="./logo (2).png"

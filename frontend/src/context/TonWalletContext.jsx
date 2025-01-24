@@ -38,10 +38,12 @@ export const TonWalletProvider = ({ children }) => {
   const userFriendlyAddress = useTonAddress();
   const rawAddress = useTonAddress(false);
   const [tonConnectUI] = useTonConnectUI();
-  // const tonweb = new TonWeb(new TonWeb.HttpProvider("https://toncenter.com/api/v2/jsonRPC"));
   const tonweb = new TonWeb(
-    new TonWeb.HttpProvider("https://testnet.toncenter.com/api/v2/jsonRPC")
+    new TonWeb.HttpProvider("https://toncenter.com/api/v2/jsonRPC")
   );
+  // const tonweb = new TonWeb(
+  //   new TonWeb.HttpProvider("https://testnet.toncenter.com/api/v2/jsonRPC")
+  // );
 
   useEffect(() => {
     // Update connection state and addresses

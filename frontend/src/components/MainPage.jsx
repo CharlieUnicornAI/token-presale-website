@@ -174,11 +174,17 @@ const MainPage = () => {
         }
       }
     } else if (inputName === "receiveable") {
-      setReceiveable(inputValue);
+      setReceiveable(inputValue); // Store raw input as string
       const numericValue = parseFloat(inputValue);
       if (!isNaN(numericValue)) {
         if (paymenType === "ETH") {
-          const value = numericValue / price / PER_USDT_TO_BNB;
+          const value = numericValue / price / PER_USDT_TO_NATIVE;
+          setAmount(formatValue(value).toString());
+        } else if (paymenType === "BNB") {
+          const value = numericValue / price / PER_USDT_TO_NATIVE;
+          setAmount(formatValue(value).toString());
+        } else if (paymenType === "POL") {
+          const value = numericValue / price / PER_USDT_TO_NATIVE;
           setAmount(formatValue(value).toString());
         } else if (paymenType === "USDT") {
           const value = numericValue / price;
@@ -826,7 +832,7 @@ const MainPage = () => {
                   <div className="absolute inset-[1px] bg-[#1C1C1C] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] flex flex-col justify-center px-1 md:px-4">
                     <div className="flex flex-col xl:flex-row items-center justify-between">
                       <a
-                        href="https://basescan.org/address/0xBde71bB4593C4964dad1A685CbE9Cf6a2cDBDca7"
+                        href="https://bscscan.com/token/0x6cbf13a8cdb39b13746906c32f3e1ecb089a1989"
                         className=" text-white hover:text-[#989898] transition-all ease-in-out duration-300 uppercase text-xs"
                       >
                         {t("tokenAddress")}
@@ -834,12 +840,12 @@ const MainPage = () => {
                       <div className="flex items-center justify-between px-1 md:px-0 gap-0 xl:gap-1">
                         <div className="gradient-text font-normal text-[8px] md:text-xs">
                           <span>
-                            0xBde71bB4593C4964dad1A685CbE9Cf6a2cDBDca7
+                            0x6cbf13a8cdb39b13746906c32f3e1ecb089a1989
                           </span>
                         </div>
                         <CopyToClipboardButton
                           textToCopy={
-                            "0xBde71bB4593C4964dad1A685CbE9Cf6a2cDBDca7"
+                            "0x6cbf13a8cdb39b13746906c32f3e1ecb089a1989"
                           }
                         />
                       </div>
@@ -931,7 +937,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text font-normal text-sm md:text-base">
                     {" "}
-                    Base {t("network")} (ETH)
+                    BNB {t("network")}
                   </span>
                 </div>
               </div>
@@ -1233,7 +1239,7 @@ const MainPage = () => {
                       placeholder="0"
                       value={receiveable}
                       onChange={handlePaymentChange}
-                      disabled={loading || !isConnected}
+                      disabled={loading || !isConnected || paymenType === "TON"}
                       className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
                         loading || !isConnected
                           ? "text-[#CCCCCC] cursor-not-allowed"

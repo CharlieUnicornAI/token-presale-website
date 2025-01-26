@@ -9,16 +9,16 @@ import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import { TonWalletProvider } from "./context/TonWalletContext";
 
 // 1. Get projectId
-const projectId = "2107c00a7b77ee5371a8e43b5c13a4e6";
+const projectId = "a00e6afab7908b60028609d37cec05f7";
 
 // 2. Set the networks
 const networks = [base, mainnet, bsc, polygon, solana];
 
 // 3. Create a metadata object - optional
 const metadata = {
-  name: "Charlie Unicorn AI presale website",
-  description: "Charlie Unicorn AI presale website",
-  url: "https://charlietheunicoin.shop/", // origin must match your domain & subdomain
+  name: "Charlie Unicorn AI Token Presale Website",
+  description: "Charlie Unicorn AI Token Presale Website",
+  url: "https://charlieunicornai-sale.eu/", // origin must match your domain & subdomain
   icons: ["/public/logo.png"],
 };
 

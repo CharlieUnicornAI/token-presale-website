@@ -211,32 +211,6 @@ const MainPage = () => {
     }
   };
 
-  // Fetch range
-  const fetchRange = async () => {
-    try {
-      const response = await axios.get(
-        "https://api.changenow.io/v2/exchange/min-amount",
-        {
-          params: {
-            fromCurrency: "ton",
-            toCurrency: "usdc",
-            fromNetwork: "ton",
-            toNetwork: "base",
-            flow: "fixed-rate",
-          },
-          headers: {
-            "x-changenow-api-key":
-              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
-          },
-        }
-      );
-      const { minAmount } = response.data;
-      return minAmount;
-    } catch (err) {
-      console.log("fetchRange error: ", err);
-    }
-  };
-
   // Get estimated USDC from TON
   const getEstimatedTonToUSDC = async (tonAmount) => {
     try {
@@ -250,7 +224,7 @@ const MainPage = () => {
             toAmount: "",
             fromNetwork: "ton",
             toNetwork: "base",
-            flow: "fixed-rate",
+            flow: "standard",
             type: "",
             useRateId: "",
           },
@@ -306,7 +280,7 @@ const MainPage = () => {
           toNetwork: "base",
           fromAmount: amount,
           address: usdcAddress,
-          flow: "standard",
+          flow: "fixed-rate",
         },
         {
           headers: {
@@ -376,7 +350,7 @@ const MainPage = () => {
         return;
       }
       if (parseFloat(amount) < parseFloat(tonMinAmount)) {
-        toast.info("Amount must be more than 2.1 TON");
+        toast.info(`Amount must be more than ${tonMinAmount} TON`);
         setLoading(false);
         return;
       }
@@ -386,7 +360,7 @@ const MainPage = () => {
         return;
       }
       const ethBalance = await fetchBalance();
-      if (parseFloat(ethBalance) < 0.0001) {
+      if (parseFloat(ethBalance) < 0.00005) {
         toast.error("You don't have enough ETH fee");
         setLoading(false);
         return;
@@ -532,16 +506,6 @@ const MainPage = () => {
       }
     }
   }, [isConnected, chainId]);
-
-  useEffect(() => {
-    const fetchMinAmount = async () => {
-      const minAmount = await fetchRange();
-      setTonMinAmount(minAmount);
-    };
-    if (paymenType === "TON") {
-      fetchMinAmount();
-    }
-  }, [paymenType]);
 
   useEffect(() => {
     if (paymenType === "TON" && parseFloat(amount) < tonMinAmount) {
@@ -876,6 +840,8 @@ const MainPage = () => {
                     <div className="flex flex-col xl:flex-row items-center justify-between">
                       <a
                         href="https://bscscan.com/token/0x6cbf13a8cdb39b13746906c32f3e1ecb089a1989"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className=" text-white hover:text-[#989898] transition-all ease-in-out duration-300 uppercase text-xs"
                       >
                         {t("tokenAddress")}
@@ -895,7 +861,9 @@ const MainPage = () => {
                     </div>
                     <div className="flex flex-col xl:flex-row items-center justify-between mt-2 xl:mt-0">
                       <a
-                        href="https://basescan.org/address/0xdDc631F8197C9bb390B28a7604A2ddC65dC662FC#internaltx"
+                        href="https://basescan.org/address/0xdDc631F8197C9bb390B28a7604A2ddC65dC662FC"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className=" text-white hover:text-[#989898] transition-all ease-in-out duration-300 uppercase text-xs"
                       >
                         {t("presaleWalletAddress")}
@@ -1006,7 +974,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text ml-4 text-sm md:text-base">
                     <span className="font-semibold text-sm md:text-base">
-                      {paymenType === "TON" ? tonMinAmount : 1}
+                      1
                     </span>{" "}
                     {paymenType === "TON" ? "TON" : "USDT"}
                   </span>

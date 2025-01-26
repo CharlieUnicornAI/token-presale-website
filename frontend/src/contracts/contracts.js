@@ -1,14 +1,14 @@
-export const TOKEN_CONTRACT_ADDRESS =
-  "0xBde71bB4593C4964dad1A685CbE9Cf6a2cDBDca7";
 export const PRESALE_CONTRACT_ADDRESS =
   "0x22a91aC4BCC618BdC2Ce62020Fc165b75A10033B";
 export const USDT_CONTRACT_ADDRESS =
-  "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 export const USDC_CONTRACT_ADDRESS =
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 export const PER_DOLLAR_PRICE = 20000;
 export const PER_USDT_TO_BNB = 4000.86;
+
+export const PER_USDT_TO_SOL = 220.86;
 
 export const TOKEN_ABI = [
   { inputs: [], stateMutability: "nonpayable", type: "constructor" },
@@ -733,14 +733,14 @@ export const PRESALE_ABI = [
     type: "function",
   },
   {
-    "inputs": [
-      { "internalType": "uint256", "name": "_pid", "type": "uint256" },
-      { "internalType": "uint256", "name": "_amount", "type": "uint256" }
+    inputs: [
+      { internalType: "uint256", name: "_pid", type: "uint256" },
+      { internalType: "uint256", name: "_amount", type: "uint256" },
     ],
-    "name": "buyFromToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    name: "buyFromToken",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
     inputs: [

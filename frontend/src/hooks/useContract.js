@@ -11,7 +11,41 @@ import {
 } from "../contracts/contracts";
 import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 
-const chain_id = 8453;
+// Define the two networks (BSC and Matic)
+const NETWORKS = {
+  56: {
+    // BSC Mainnet
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9", // Replace with actual address
+    USDT_CONTRACT_ADDRESS: "0x55d398326f99059fF775485246999027B3197955", // BSC USDT contract address
+    USDC_CONTRACT_ADDRESS: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // BSC USDC contract address
+    TOKEN_CONTRACT_ADDRESS: "0x6cbF13A8cDb39B13746906c32F3E1eCB089a1989", // BSC Token contract address
+    decimals: 18, // BSC USDT and USDC decimals
+  },
+  137: {
+    // Polygon (Matic) Mainnet
+    PRESALE_CONTRACT_ADDRESS: "0xb821B7fb4a82443Ff6D8480408F9558Db409FE2F", // Replace with actual address
+    USDT_CONTRACT_ADDRESS: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // Polygon USDT contract address
+    USDC_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Polygon USDC contract address
+    TOKEN_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Polygon Token contract address
+    decimals: 6, // Polygon USDT and USDC decimals
+  },
+  8453: {
+    // Base Network (example)
+    PRESALE_CONTRACT_ADDRESS: "0x22a91aC4BCC618BdC2Ce62020Fc165b75A10033B", // Replace with actual address
+    USDT_CONTRACT_ADDRESS: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", // Base Network USDT contract address
+    USDC_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Network USDC contract address
+    TOKEN_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Network Token contract address
+    decimals: 6, // Base Network USDT and USDC decimals
+  },
+  1: {
+    // Ethereum Mainnet
+    PRESALE_CONTRACT_ADDRESS: "0x07D2AF0Dd0D5678C74f2C0d7adF34166dD37ae22", // Replace with actual address
+    USDT_CONTRACT_ADDRESS: "0xdac17f958d2ee523a2206206994597c13d831ec7", // Ethereum USDT contract address
+    USDC_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum USDC contract address
+    TOKEN_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum Token contract address
+    decimals: 6, // Ethereum USDT and USDC decimals
+  },
+};
 
 function useContract() {
   const { walletProvider } = useAppKitProvider("eip155");
@@ -20,8 +54,34 @@ function useContract() {
   const getProvider = () => {
     return new BrowserProvider(walletProvider);
   };
+
   const getSigner = async (provider) => {
     return provider.getSigner();
+  };
+
+  const getNetworkConfig = async () => {
+    const provider = getProvider();
+    const network = await provider.getNetwork();
+    const { chainId } = network;
+
+    if (NETWORKS[chainId]) {
+      const {
+        PRESALE_CONTRACT_ADDRESS,
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        TOKEN_CONTRACT_ADDRESS, // Include TOKEN_CONTRACT_ADDRESS here
+      } = NETWORKS[chainId];
+
+      return {
+        chainId,
+        PRESALE_CONTRACT_ADDRESS,
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        TOKEN_CONTRACT_ADDRESS, // Return TOKEN_CONTRACT_ADDRESS
+      };
+    } else {
+      throw new Error("Unsupported network.");
+    }
   };
 
   const getContract = async (address, abi, signer) => {
@@ -30,59 +90,87 @@ function useContract() {
   };
 
   const buy = async (paymentType, amount) => {
-    const provider = getProvider();
-    const signer = await getSigner(provider);
-    // print singer address
-    const contract = await getContract(
-      PRESALE_CONTRACT_ADDRESS,
-      PRESALE_ABI,
-      signer
-    );
+    try {
+      const provider = getProvider();
+      const signer = await getSigner(provider);
 
-    if (paymentType === "ETH") {
-      const transaction = await contract.buyFromNative({
-        value: parseUnits(amount.toString(), 18),
-      });
-      const receipt = await transaction.wait();
-      return receipt;
-    } else if (paymentType === "USDT") {
-      const usdt = await getContract(USDT_CONTRACT_ADDRESS, TOKEN_ABI, signer); // usdt contract
-      const transaction = await usdt.approve(
-        // approving usdt contract
+      // Fetch the correct contract addresses based on the network
+      const {
         PRESALE_CONTRACT_ADDRESS,
-        parseUnits(amount.toString(), 6)
-      );
-      await transaction.wait();
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        decimals,
+      } = await getNetworkConfig();
 
-      const trx1 = await contract.buyFromToken(
-        // buying from token
-        1,
-        parseUnits(amount.toString(), 6)
-      );
-
-      return await trx1.wait();
-    } else if (paymentType === "USDC") {
-      const usdc = await getContract(USDC_CONTRACT_ADDRESS, TOKEN_ABI, signer);
-      const transaction = await usdc.approve(
+      // Initialize the presale contract
+      const contract = await getContract(
         PRESALE_CONTRACT_ADDRESS,
-        parseUnits(amount.toString(), 6)
+        PRESALE_ABI,
+        signer
       );
-      await transaction.wait();
 
-      const trx2 = await contract.buyFromToken(
-        // buying from token
-        2,
+      if (
+        paymentType === "ETH" ||
+        paymentType === "BNB" ||
+        paymentType === "POL"
+      ) {
+        // Handle ETH or BNB payment
+        const transaction = await contract.buyFromNative({
+          value: parseUnits(amount.toString(), 18), // Assuming ETH and BNB use 18 decimals
+        });
+        const receipt = await transaction.wait();
+        return receipt;
+      } else if (paymentType === "USDT") {
+        // Handle USDT payment
+        const usdt = await getContract(
+          USDT_CONTRACT_ADDRESS,
+          TOKEN_ABI,
+          signer
+        );
+        const approveTx = await usdt.approve(
+          PRESALE_CONTRACT_ADDRESS,
+          parseUnits(amount.toString(), decimals)
+        );
+        await approveTx.wait();
 
-        parseUnits(amount.toString(), 6)
-      );
-      await trx2.wait();
+        const buyTx = await contract.buyFromToken(
+          1,
+          parseUnits(amount.toString(), decimals)
+        ); // '1' represents USDT
+        const receipt = await buyTx.wait();
+        return receipt;
+      } else if (paymentType === "USDC") {
+        // Handle USDC payment
+        const usdc = await getContract(
+          USDC_CONTRACT_ADDRESS,
+          TOKEN_ABI,
+          signer
+        );
+        const approveTx = await usdc.approve(
+          PRESALE_CONTRACT_ADDRESS,
+          parseUnits(amount.toString(), decimals)
+        );
+        await approveTx.wait();
+
+        const buyTx = await contract.buyFromToken(
+          2,
+          parseUnits(amount.toString(), decimals)
+        ); // '2' represents USDC
+        const receipt = await buyTx.wait();
+        return receipt;
+      } else {
+        throw new Error("Unsupported payment type");
+      }
+    } catch (error) {
+      console.error("Error during purchase:", error);
+      throw error;
     }
   };
 
   const claimTokens = async () => {
     const provider = getProvider();
     const signer = await getSigner(provider);
-    // print singer address
+    const { PRESALE_CONTRACT_ADDRESS } = await getNetworkConfig();
     const contract = await getContract(
       PRESALE_CONTRACT_ADDRESS,
       PRESALE_ABI,
@@ -95,14 +183,15 @@ function useContract() {
 
   const getTotalUsers = async () => {
     try {
-      const provider = getProviders1(); // Use a provider without a wallet connection
+      const provider = getProviders1();
+      const { PRESALE_CONTRACT_ADDRESS } = await getNetworkConfig();
       const contract = new Contract(
         PRESALE_CONTRACT_ADDRESS,
         PRESALE_ABI,
         provider
       );
       const totalUsers = await contract.totalUsers();
-      return totalUsers.toNumber(); // Convert BigNumber to regular number
+      return totalUsers.toNumber();
     } catch (error) {
       console.error("Error fetching total users:", error.message);
       throw error;
@@ -113,38 +202,56 @@ function useContract() {
     if (walletProvider) {
       return new BrowserProvider(walletProvider);
     } else {
-      // Use a public provider for read-only operations
       return new ethers.JsonRpcProvider("https://rpc.ankr.com/base");
     }
   };
 
   const getClaimableTokens = async () => {
     try {
+      // Ensure the wallet is connected
       if (!isConnected) {
         throw new Error("Wallet is not connected.");
       }
 
+      // Get the provider and network information
       const provider = getProvider();
-      const chainId = await provider.getNetwork();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
 
-      if (chainId.chainId !== chain_id) {
+      // Ensure we're connected to the correct network
+      const { chain_id } = await getNetworkConfig(); // Get the correct chainId from network config
+      if (chainId !== chain_id) {
         throw new Error("Connected to the wrong network.");
       }
 
+      // Get the signer for contract interactions
       const signer = await getSigner(provider);
+
+      // Fetch the correct presale contract address
+      const { PRESALE_CONTRACT_ADDRESS } = await getNetworkConfig();
+
+      // Get the contract instance
       const contract = await getContract(
         PRESALE_CONTRACT_ADDRESS,
         PRESALE_ABI,
         signer
       );
 
-      const allocation = await contract.presaleAllocations(address); // Fetch user's allocated tokens
-      const claims = await contract.presaleClaims(address); // Fetch user's claimed tokens
+      // Fetch allocation and claims for the user's address
+      const allocation = await contract.presaleAllocations(address);
+      const claims = await contract.presaleClaims(address);
 
-      const claimable = allocation - claims; // Calculate claimable tokens
+      // Format values to the appropriate units (18 decimals)
+      const allocationInEth = formatUnits(allocation, 18);
+      const claimsInEth = formatUnits(claims, 18);
 
+      // Calculate the claimable tokens
+      const claimable = parseFloat(allocationInEth) - parseFloat(claimsInEth);
+
+      // Return the claimable amount in the appropriate format
       return claimable;
     } catch (error) {
+      // Log and throw error if something goes wrong
       console.error("Error fetching claimable tokens:", error.message || error);
       throw error;
     }
@@ -153,149 +260,206 @@ function useContract() {
   const getPresaleAllocation = async () => {
     if (!isConnected || !walletProvider) {
       return 0;
-    } else {
+    }
+
+    try {
+      // Get the provider and network information
       const provider = getProvider();
-      // check chain id and throw error if not correct
-      const chainId = await provider.getNetwork();
-      // base chain id
-      if (chainId.chainId != chain_id) {
-        return;
+      const network = await provider.getNetwork();
+      const { chainId } = network;
+
+      // Ensure we're connected to the correct network
+      const networkConfig = NETWORKS[chainId];
+      if (!networkConfig) {
+        throw new Error("Unsupported network.");
       }
 
+      const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
+
+      // Get the signer for the contract transactions
       const signer = await getSigner(provider);
+
+      // Get the contract instance
       const contract = await getContract(
         PRESALE_CONTRACT_ADDRESS,
         PRESALE_ABI,
         signer
       );
 
-      // Call the getPresaleUnclaimed function
+      // Fetch the unclaimed tokens for the user
       const unclaimedTokens = await contract.getPresaleUnclaimed(address);
-
-      // Format the tokens using ethers.js formatUnits for 18 decimals
-      const formattedUnclaimedTokens = formatUnits(unclaimedTokens, 18);
+      const formattedUnclaimedTokens = formatUnits(unclaimedTokens, 18); // Format the tokens
 
       return formattedUnclaimedTokens;
+    } catch (error) {
+      // Handle any errors that may occur during the process
+      console.error(
+        "Error fetching presale allocation:",
+        error.message || error
+      );
+      return "Error fetching allocation"; // Return an error message if something goes wrong
     }
   };
 
   const getData = async () => {
-    let token;
+    // Check if the wallet is connected
     if (!isConnected) {
-      return;
-    } else {
-      const provider = getProvider();
-      // check chain id and throw error if not correct
-      const chainId = await provider.getNetwork();
-      // base chain id
-      if (chainId.chainId != chain_id) {
-        return;
-      }
-
-      const signer = await getSigner(provider);
-      token = await getContract(TOKEN_CONTRACT_ADDRESS, TOKEN_ABI, signer);
+      return { balanceInEth: 0, contractBalance: 0 }; // Return default values if not connected
     }
 
-    const balance = await token.balanceOf(address);
-    const balanceInEth = formatUnits(balance, 18);
+    try {
+      // Get the provider and network information
+      const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
 
-    // contract token balance
-    const contractBalanceInEth = await token.balanceOf(
-      PRESALE_CONTRACT_ADDRESS
-    );
-    const contractBalance = formatUnits(contractBalanceInEth, 18);
+      // Ensure we're connected to the correct network
+      const { chain_id } = await getNetworkConfig(); // Get the correct chainId from the network config
+      if (chainId !== chain_id) {
+        throw new Error("Connected to the wrong network.");
+      }
 
-    return {
-      balanceInEth,
-      contractBalance,
-    };
+      // Get the signer for the contract transactions
+      const signer = await getSigner(provider);
+
+      // Fetch the appropriate contract address based on the network
+      const {
+        PRESALE_CONTRACT_ADDRESS,
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        TOKEN_CONTRACT_ADDRESS,
+      } = await getNetworkConfig();
+
+      // Get the token contract instance
+      const token = await getContract(
+        TOKEN_CONTRACT_ADDRESS,
+        TOKEN_ABI,
+        signer
+      );
+
+      // Fetch the user's token balance
+      const balance = await token.balanceOf(address);
+      const balanceInEth = formatUnits(balance, 18); // Format the user's balance
+
+      // Fetch the contract's token balance
+      const contractBalanceInEth = await token.balanceOf(
+        PRESALE_CONTRACT_ADDRESS
+      );
+      const contractBalance = formatUnits(contractBalanceInEth, 18); // Format the contract's balance
+
+      return {
+        balanceInEth,
+        contractBalance,
+      };
+    } catch (error) {
+      // Handle any errors that may occur during the process
+      console.error("Error fetching data:", error.message || error);
+      return { balanceInEth: 0, contractBalance: 0 }; // Return default values on error
+    }
   };
 
+  // Get user's token balance
   const myTokenBalance = async () => {
-    let token;
-    if (!isConnected) {
-      return 0;
-    } else {
-      const provider = getProvider();
-      // check chain id and throw error if not correct
-      const chainId = await provider.getNetwork();
-      // base chain id
-      if (chainId.chainId != chain_id) {
-        return;
-      }
+    if (!isConnected) return 0;
 
-      const signer = await getSigner(provider);
-      token = await getContract(TOKEN_CONTRACT_ADDRESS, TOKEN_ABI, signer);
-      const balance = await token.balanceOf(address);
-      const balanceInEth = formatUnits(balance, 18);
-      return balanceInEth;
-    }
+    const provider = getProvider();
+    const signer = await getSigner(provider);
+    const {
+      PRESALE_CONTRACT_ADDRESS,
+      USDT_CONTRACT_ADDRESS,
+      USDC_CONTRACT_ADDRESS,
+      TOKEN_CONTRACT_ADDRESS,
+    } = await getNetworkConfig();
+
+    const token = await getContract(TOKEN_CONTRACT_ADDRESS, TOKEN_ABI, signer);
+    const balance = await token.balanceOf(address);
+
+    return formatUnits(balance, 18);
   };
 
   const maxBalances = async () => {
-    let token;
-    let token2;
-    let usdcBalance;
-    let usdtBalance;
-    let ethbalance;
-    if (!isConnected) {
-      return {
-        usdt: 0,
-        busd: 0,
-        eth: 0,
-      };
-    } else {
+    try {
+      if (!isConnected)
+        return { usdt: "0.0000", usdc: "0.0000", eth: "0.0000", bnb: "0.0000" };
+
       const provider = getProvider();
-      // check chain id and throw error if not correct
-      const chainId = await provider.getNetwork();
-      // base chain id
-      if (chainId.chainId != chain_id) {
-        return;
+      const signer = await getSigner(provider);
+      const address = await signer.getAddress(); // Get user's wallet address
+
+      // Fetch the current network configuration
+      const networkConfig = await getNetworkConfig();
+      const { USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS } = networkConfig;
+
+      if (!USDT_CONTRACT_ADDRESS || !USDC_CONTRACT_ADDRESS) {
+        throw new Error(
+          "USDT or USDC contract address not found for this network."
+        );
       }
 
-      const signer = await getSigner(provider);
-      token = await getContract(USDT_CONTRACT_ADDRESS, TOKEN_ABI, signer);
-      token2 = await getContract(USDC_CONTRACT_ADDRESS, TOKEN_ABI, signer);
+      // Get contract instances
+      const usdt = await getContract(USDT_CONTRACT_ADDRESS, TOKEN_ABI, signer);
+      const usdc = await getContract(USDC_CONTRACT_ADDRESS, TOKEN_ABI, signer);
 
-      usdtBalance = await token.balanceOf(address);
+      // Fetch balances
+      const [usdtBalance, usdcBalance, ethBalance, bnbBalance] =
+        await Promise.all([
+          usdt.balanceOf(address),
+          usdc.balanceOf(address),
+          provider.getBalance(address), // ETH balance
+          provider.getBalance(address), // BNB balance (same method)
+        ]);
 
-      usdcBalance = await token2.balanceOf(address);
-
-      // eth balance
-      ethbalance = await provider.getBalance(address);
+      // Return formatted balances
+      return {
+        usdt: formatUnits(usdtBalance, 6), // USDT typically has 6 decimals
+        usdc: formatUnits(usdcBalance, 6), // USDC typically has 6 decimals
+        eth: formatUnits(ethBalance, 18), // ETH typically has 18 decimals
+        bnb: formatUnits(bnbBalance, 18), // BNB also has 18 decimals
+      };
+    } catch (error) {
+      console.error("Error fetching balances:", error);
+      return { usdt: "0.0000", usdc: "0.0000", eth: "0.0000", bnb: "0.0000" };
     }
-
-    return {
-      usdt: Number(formatUnits(usdtBalance, 6)).toFixed(4),
-      busd: Number(formatUnits(usdcBalance, 6)).toFixed(4),
-      eth: Number(formatUnits(ethbalance, 18)).toFixed(4),
-    };
   };
 
   const getPrice = async () => {
-    let contract;
-    let price;
+    // Check if the wallet is connected
     if (!isConnected) {
-    } else {
-      const provider = getProvider();
-      // check chain id and throw error if not correct
-      const chainId = await provider.getNetwork();
+      throw new Error("Wallet is not connected.");
+    }
 
-      // base chain id
-      if (chainId.chainId != chain_id) {
-        return;
+    try {
+      // Get the provider and network information
+      const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
+
+      // Ensure we're connected to the correct network
+      const networkConfig = NETWORKS[chainId]; // Get network config based on chainId
+      if (!networkConfig) {
+        throw new Error("Unsupported network.");
       }
 
+      const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
+
+      // Get the signer for the contract transactions
       const signer = await getSigner(provider);
-      contract = await getContract(
+
+      // Get the contract instance
+      const contract = await getContract(
         PRESALE_CONTRACT_ADDRESS,
         PRESALE_ABI,
         signer
       );
-      price = await contract.perDollarPrice();
-    }
 
-    return Number(formatUnits(price, 18)).toFixed(4);
+      // Fetch the price per dollar and format it
+      const price = await contract.perDollarPrice();
+      return Number(formatUnits(price, 18)).toFixed(4); // Convert price and format to 4 decimal places
+    } catch (error) {
+      // Handle any errors that may occur during the process
+      console.error("Error fetching price:", error.message || error);
+      return "Error fetching price"; // Return an error message if something goes wrong
+    }
   };
 
   return {

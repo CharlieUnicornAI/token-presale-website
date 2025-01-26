@@ -9,8 +9,7 @@ import { PRESALE_CONTRACT_ADDRESS, PRESALE_ABI } from "../contracts/contracts";
 import { ethers } from "ethers";
 import { useTonConnectUI } from "@tonconnect/ui-react";
 import { useCustomTonWallet } from "../context/TonWalletContext";
-import { base } from "@reown/appkit/networks";
-import { Link } from "react-router-dom";
+import { Link, useFetcher } from "react-router-dom";
 import AccordianGroup from "./AccordianGroup";
 import ProgressBar from "./ProgressBar";
 import CircularChat from "./CircularChat";
@@ -18,6 +17,7 @@ import "../responsive.css";
 import Spinner from "./Spinner";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
+import { base, solana, bsc, polygon, mainnet } from "@reown/appkit/networks";
 
 const MainPage = () => {
   const [paymenType, setPaymentType] = useState("ETH");
@@ -49,12 +49,52 @@ const MainPage = () => {
   const [tonConnectUI] = useTonConnectUI();
   const { isTonWalletConnected, friendlyAddress, tonBalance, sendTon } =
     useCustomTonWallet();
+  const allowedChainIds = [1, 137, 56, 8453]; // Example chain IDs for Ethereum, Polygon, Binance Smart Chain
 
   // Handle change or other events
-  const handlePaymentTypechange = async (type) => {
-    setPaymentType(type);
-    setAmount(0);
-    setReceiveable(0);
+  const handlePaymentTypechange = async (newPaymentType, isBase) => {
+    setPaymentType(newPaymentType);
+    setAmount("");
+    setReceiveable("");
+
+    // Define network IDs for Ethereum and Binance Smart Chain
+    const networks = {
+      ETH: { id: 1, name: "Ethereum Mainnet" },
+      BNB: { id: 56, name: "Binance Smart Chain" },
+      POL: { id: 137, name: "Polygon" },
+      BASE: { id: 8453, name: "Base" },
+    };
+
+    try {
+      // Check if the new payment type requires a network switch
+      if (isBase) {
+        switchNetwork(base);
+      } else {
+        if (newPaymentType === "BNB" && chainId !== networks.BNB.id) {
+          switchNetwork(bsc); // This will trigger a wallet popup
+        } else if (newPaymentType === "ETH" && chainId !== networks.ETH.id) {
+          switchNetwork(mainnet); // This will trigger a wallet popup
+        } else if (newPaymentType === "POL" && chainId !== networks.POL.id) {
+          switchNetwork(polygon); // This will trigger a wallet popup
+        }
+      }
+    } catch (error) {
+      console.error("Network switch failed:", error);
+      toast.error(
+        "Failed to switch network. Please change it manually in your wallet."
+      );
+    }
+  };
+
+  // Helper function to get the network object based on the chain ID
+  const getTargetNetwork = (chainId) => {
+    const networks = {
+      1: { id: 1, name: "Ethereum Mainnet" }, // Example network objects
+      137: { id: 137, name: "Polygon" },
+      56: { id: 56, name: "Binance Smart Chain" },
+      8453: { id: 8453, name: "Base" },
+    };
+    return networks[chainId];
   };
 
   const handleTonConnect = () => {
@@ -75,6 +115,21 @@ const MainPage = () => {
     };
     const inputName = e.target.name;
     const inputValue = e.target.value;
+
+    // Define network IDs and configurations
+    const networks = {
+      ETH: { id: 1, rate: 3400, name: "Ethereum Mainnet" },
+      BNB: { id: 56, rate: 700, name: "Binance Smart Chain" },
+      POL: { id: 137, rate: 0.5, name: "Polygon" },
+    };
+
+    // Replace with your dynamic logic to fetch the active network ID
+    const activeNetworkId = chainId; // Assume `chainId` is dynamically updated
+    const activeNetwork = Object.values(networks).find(
+      (network) => network.id === activeNetworkId
+    );
+
+    const PER_USDT_TO_NATIVE = activeNetwork ? activeNetwork.rate : 400.86; // Default rate
 
     if (inputValue === 0 || inputValue === "") {
       setReceiveable("");
@@ -102,7 +157,13 @@ const MainPage = () => {
       const numericValue = parseFloat(inputValue);
       if (!isNaN(numericValue)) {
         if (paymenType === "ETH") {
-          const value = numericValue * price * PER_USDT_TO_BNB;
+          const value = numericValue * price * PER_USDT_TO_NATIVE;
+          setReceiveable(formatValue(value).toString());
+        } else if (paymenType === "BNB") {
+          const value = numericValue * price * PER_USDT_TO_NATIVE;
+          setReceiveable(formatValue(value).toString());
+        } else if (paymenType === "POL") {
+          const value = numericValue * price * PER_USDT_TO_NATIVE;
           setReceiveable(formatValue(value).toString());
         } else if (paymenType === "USDT") {
           const value = numericValue * price;
@@ -345,8 +406,15 @@ const MainPage = () => {
   }, [address]);
 
   useEffect(() => {
-    if (isConnected && chainId !== base.id) {
-      switchNetwork(base);
+    if (isConnected && !allowedChainIds.includes(chainId)) {
+      const targetNetwork = getTargetNetwork(chainId); // Function to get the correct network object
+      if (targetNetwork) {
+        switchNetwork(targetNetwork);
+      } else {
+        toast.error(
+          "Unsupported network. Please switch to a supported network."
+        );
+      }
     }
   }, [isConnected, chainId]);
 
@@ -419,40 +487,6 @@ const MainPage = () => {
           ethers.formatUnits(tokensSold, 18)
         ).toFixed(2); // Format to two decimals
         setTotalTokensSold(formattedTokensSold);
-      } catch (error) {
-        console.error("Error fetching contract data:", error.message);
-        setError("Failed to fetch data. Please try again later.");
-      }
-    };
-
-    fetchContractData();
-  }, []);
-
-  useEffect(() => {
-    const fetchContractData = async () => {
-      try {
-        // Connect to the Ethereum network using a public RPC provider
-        const provider = new ethers.JsonRpcProvider(
-          "https://rpc.ankr.com/base"
-        );
-
-        // Create a contract instance
-        const contract = new ethers.Contract(
-          PRESALE_CONTRACT_ADDRESS,
-          PRESALE_ABI,
-          provider
-        );
-
-        // Fetch `totalUsers` from the contract
-        const users = await contract.totalUsers();
-        setTotalUsers(users.toString()); // Convert BigNumber to string
-
-        // Fetch `totalTokensSold` from the contract
-        const tokensSold = await contract.totalTokensSold();
-        const formattedTokensSold = parseFloat(
-          ethers.formatUnits(tokensSold, 18)
-        ).toFixed(2); // Format to two decimals
-        setTotalTokensSold(formattedTokensSold);
 
         // Calculate total USD raised
         const usdRaised = (formattedTokensSold * tokenPriceInUsd).toFixed(2); // Multiply tokens sold by price
@@ -466,13 +500,8 @@ const MainPage = () => {
     fetchContractData();
   }, []);
 
-  useEffect(() => {
-    setAmount("");
-    setReceiveable("");
-  }, [paymenType]);
-
   // Constant variables
-  const tokenPriceInUsd = 0.00022; // Example price per token in USD (adjust this)
+  const tokenPriceInUsd = 0.00022;
 
   const members = [
     {
@@ -599,19 +628,6 @@ const MainPage = () => {
                 <p style={{ color: "red" }}>{error}</p>
               ) : (
                 <>
-                  {/* {totalUsers !== null ? (
-                    <div className="w-full flex items-center justify-between">
-                      <span className="text-[#747474] font-semibold text-sm md:text-lg">
-                        Total Unique Users :{" "}
-                      </span>
-                      <span className="gradient-text font-semibold text-sm md:text-xl">
-                        {totalUsers}
-                      </span>
-                    </div>
-                  ) : (
-                    <span>...</span>
-                  )}
-                  <div className="h-[1px] w-full bg-gradient mt-1"></div> */}
                   {totalTokensSold !== null ? (
                     <div className="mt-4">
                       <div className="w-full flex items-center justify-between">
@@ -653,8 +669,8 @@ const MainPage = () => {
                     {t("supportingMultichains")}
                   </span>
                 </div>
-                <div className="flex flex-row gap-8 items-start justify-center mt-2 support-multichain">
-                  <div className="flex flex-col items-center justify-center">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-8 items-center justify-center mt-2 support-multichain">
+                  <button className="flex flex-col items-center justify-center">
                     <img
                       src="ethereum.svg"
                       alt="ETH"
@@ -663,8 +679,8 @@ const MainPage = () => {
                     <p className="font-normal gradient-text text-xs md:text-lg">
                       ETH
                     </p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center">
+                  </button>
+                  <button className="flex flex-col items-center justify-center">
                     <img
                       src="base.svg"
                       alt="BASE"
@@ -673,18 +689,8 @@ const MainPage = () => {
                     <p className="font-normal gradient-text text-xs md:text-lg">
                       BASE
                     </p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center">
-                    <img
-                      src="ton.svg"
-                      alt="TON"
-                      className="md:w-12 md:h-12 w-10 h-10 transition-all ease-in-out duration-300 hover:scale-110 cursor-pointer"
-                    />
-                    <p className="font-normal gradient-text text-xs md:text-lg">
-                      TON
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center">
+                  </button>
+                  <button className="flex flex-col items-center justify-center">
                     <img
                       src="bnb.svg"
                       alt="BNB"
@@ -693,17 +699,37 @@ const MainPage = () => {
                     <p className="font-normal gradient-text text-xs md:text-lg">
                       BNB
                     </p>
-                  </div>
-                  <div className="flex flex-col items-center justify-center">
+                  </button>
+                  <button className="flex flex-col items-center justify-center">
+                    <img
+                      src="pol.svg"
+                      alt="POL"
+                      className="md:w-12 md:h-12 w-10 h-10 transition-all ease-in-out duration-300 hover:scale-110 cursor-pointer"
+                    />
+                    <p className="font-normal gradient-text text-xs md:text-lg">
+                      POL
+                    </p>
+                  </button>
+                  <button className="flex flex-col items-center justify-center">
                     <img
                       src="sol.svg"
                       alt="SOL"
                       className="md:w-12 md:h-12 w-10 h-10 transition-all ease-in-out duration-300 hover:scale-110 cursor-pointer"
                     />
                     <p className="font-normal gradient-text text-xs md:text-lg">
-                      SOLANA
+                      SOL
                     </p>
-                  </div>
+                  </button>
+                  <button className="flex flex-col items-center justify-center">
+                    <img
+                      src="ton.svg"
+                      alt="TON"
+                      className="md:w-12 md:h-12 w-10 h-10 transition-all ease-in-out duration-300 hover:scale-110 cursor-pointer"
+                    />
+                    <p className="font-normal gradient-text text-xs md:text-lg">
+                      TON
+                    </p>
+                  </button>
                 </div>
               </div>
             </div>
@@ -979,7 +1005,7 @@ const MainPage = () => {
                   </div>
                 </div>
                 {paymentDropdownOpen && (
-                  <div className="payment-dropdown flex flex-col w-full absolute bg-[#212121] h-[205px] mt-[-14px] border-[2px] rounded-lg border-[#444444] z-20">
+                  <div className="payment-dropdown flex flex-col w-full absolute bg-[#212121] h-[330px] mt-[-14px] border-[2px] rounded-lg border-[#444444] z-20">
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
@@ -997,7 +1023,49 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("USDT");
+                        handlePaymentTypechange("ETH", true);
+                      }}
+                      className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
+                    >
+                      <img
+                        src="./eth.svg"
+                        alt="ETH"
+                        className="w-4 h-4 sm:w-5 sm:h-5"
+                      />
+                      <span className="text-sm md:text-base">ETH(Base)</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        setIsPaymentDropdownOpen(false);
+                        handlePaymentTypechange("BNB");
+                      }}
+                      className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
+                    >
+                      <img
+                        src="./bnb.svg"
+                        alt="ETH"
+                        className="w-4 h-4 sm:w-5 sm:h-5"
+                      />
+                      <span className="text-sm md:text-base">BNB</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        setIsPaymentDropdownOpen(false);
+                        handlePaymentTypechange("POL");
+                      }}
+                      className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
+                    >
+                      <img
+                        src="./pol.svg"
+                        alt="POL"
+                        className="w-4 h-4 sm:w-5 sm:h-5"
+                      />
+                      <span className="text-sm md:text-base">POL</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        setIsPaymentDropdownOpen(false);
+                        handlePaymentTypechange("USDT", true);
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1011,7 +1079,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("USDC");
+                        handlePaymentTypechange("USDC", true);
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1039,7 +1107,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        setPaymentType("TON");
+                        handlePaymentTypechange("TON", true);
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1080,6 +1148,10 @@ const MainPage = () => {
                       <span className="gradient-text font-normal text-base">
                         {paymenType === "ETH"
                           ? " ETH"
+                          : paymenType === "BNB"
+                          ? " BNB"
+                          : paymenType === "POL"
+                          ? " POL"
                           : paymenType === "USDT"
                           ? " USDT"
                           : paymenType === "USDC"
@@ -1128,6 +1200,10 @@ const MainPage = () => {
                       src={
                         paymenType === "ETH"
                           ? "./eth.svg"
+                          : paymenType === "BNB"
+                          ? "./bnb.svg"
+                          : paymenType === "POL"
+                          ? "./pol.svg"
                           : paymenType === "USDT"
                           ? "./usdt.svg"
                           : paymenType === "USDC"

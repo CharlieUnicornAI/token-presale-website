@@ -34,6 +34,7 @@ const MainPage = () => {
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
   const [unclaimedTokens, setUnclaimedTokens] = useState(null);
   const [tonTransactionLink, setTonTransactionLink] = useState(null);
+  const [tonMinAmount, setTonMinAmount] = useState(null);
   const { t } = useTranslation();
   const {
     buy,
@@ -210,6 +211,32 @@ const MainPage = () => {
     }
   };
 
+  // Fetch range
+  const fetchRange = async () => {
+    try {
+      const response = await axios.get(
+        "https://api.changenow.io/v2/exchange/min-amount",
+        {
+          params: {
+            fromCurrency: "ton",
+            toCurrency: "usdc",
+            fromNetwork: "ton",
+            toNetwork: "base",
+            flow: "fixed-rate",
+          },
+          headers: {
+            "x-changenow-api-key":
+              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
+          },
+        }
+      );
+      const { minAmount } = response.data;
+      return minAmount;
+    } catch (err) {
+      console.log("fetchRange error: ", err);
+    }
+  };
+
   // Get estimated USDC from TON
   const getEstimatedTonToUSDC = async (tonAmount) => {
     try {
@@ -348,7 +375,7 @@ const MainPage = () => {
         setLoading(false);
         return;
       }
-      if (parseFloat(amount) < 2.1) {
+      if (parseFloat(amount) < parseFloat(tonMinAmount)) {
         toast.info("Amount must be more than 2.1 TON");
         setLoading(false);
         return;
@@ -393,37 +420,6 @@ const MainPage = () => {
   };
 
   // Hooks
-  useEffect(() => {
-    const _getPrice = async () => {
-      const _price = await getPrice();
-      setPrice(_price);
-    };
-    if (isConnected) _getPrice();
-  }, [isConnected]);
-
-  useEffect(() => {
-    const _balance = async () => {
-      const _myBalance = await myTokenBalance();
-      setBalance(_myBalance);
-      const _maxBalance = await maxBalances();
-      setMaxBalance(_maxBalance);
-    };
-    if (address) _balance();
-  }, [address]);
-
-  useEffect(() => {
-    if (isConnected && !allowedChainIds.includes(chainId)) {
-      const targetNetwork = getTargetNetwork(chainId); // Function to get the correct network object
-      if (targetNetwork) {
-        switchNetwork(targetNetwork);
-      } else {
-        toast.error(
-          "Unsupported network. Please switch to a supported network."
-        );
-      }
-    }
-  }, [isConnected, chainId]);
-
   useEffect(() => {
     const fetchUnclaimedTokens = async () => {
       try {
@@ -505,6 +501,53 @@ const MainPage = () => {
 
     fetchContractData();
   }, []);
+
+  useEffect(() => {
+    const _getPrice = async () => {
+      const _price = await getPrice();
+      setPrice(_price);
+    };
+    if (isConnected) _getPrice();
+  }, [isConnected]);
+
+  useEffect(() => {
+    const _balance = async () => {
+      const _myBalance = await myTokenBalance();
+      setBalance(_myBalance);
+      const _maxBalance = await maxBalances();
+      setMaxBalance(_maxBalance);
+    };
+    if (address) _balance();
+  }, [address]);
+
+  useEffect(() => {
+    if (isConnected && !allowedChainIds.includes(chainId)) {
+      const targetNetwork = getTargetNetwork(chainId); // Function to get the correct network object
+      if (targetNetwork) {
+        switchNetwork(targetNetwork);
+      } else {
+        toast.error(
+          "Unsupported network. Please switch to a supported network."
+        );
+      }
+    }
+  }, [isConnected, chainId]);
+
+  useEffect(() => {
+    const fetchMinAmount = async () => {
+      const minAmount = await fetchRange();
+      setTonMinAmount(minAmount);
+    };
+    if (paymenType === "TON") {
+      fetchMinAmount();
+    }
+  }, [paymenType]);
+
+  useEffect(() => {
+    if (paymenType === "TON" && parseFloat(amount) < tonMinAmount) {
+      setReceiveable("");
+    }
+  }, [paymenType, amount]);
 
   // Constant variables
   const tokenPriceInUsd = 0.00022;
@@ -963,7 +1006,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text ml-4 text-sm md:text-base">
                     <span className="font-semibold text-sm md:text-base">
-                      {paymenType === "TON" ? 2.1 : 1}
+                      {paymenType === "TON" ? tonMinAmount : 1}
                     </span>{" "}
                     {paymenType === "TON" ? "TON" : "USDT"}
                   </span>
@@ -1241,7 +1284,7 @@ const MainPage = () => {
                       onChange={handlePaymentChange}
                       disabled={loading || !isConnected || paymenType === "TON"}
                       className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
-                        loading || !isConnected
+                        loading || !isConnected || paymenType === "TON"
                           ? "text-[#CCCCCC] cursor-not-allowed"
                           : "text-white"
                       }`}

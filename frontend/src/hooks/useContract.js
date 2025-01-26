@@ -307,6 +307,7 @@ function useContract() {
     claimTokens,
     getPresaleAllocation,
     getTotalUsers,
+    getProvider,
   };
 }
 

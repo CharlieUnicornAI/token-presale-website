@@ -33,6 +33,7 @@ const MainPage = () => {
   const [loading, setLoading] = useState(false);
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
   const [unclaimedTokens, setUnclaimedTokens] = useState(null);
+  const [tonTransactionLink, setTonTransactionLink] = useState(null);
   const { t } = useTranslation();
   const {
     buy,
@@ -41,6 +42,7 @@ const MainPage = () => {
     getPrice,
     claimTokens,
     getPresaleAllocation,
+    getProvider,
   } = useContract();
   const { address, isConnected } = useAppKitAccount();
   const { switchNetwork, chainId } = useAppKitNetwork();
@@ -124,6 +126,19 @@ const MainPage = () => {
           const value = numericValue / price;
           setAmount(formatValue(value).toString());
         }
+      }
+    }
+  };
+
+  // Fetch selected balance
+  const fetchBalance = async (e) => {
+    if (isConnected && address) {
+      try {
+        const provider = getProvider();
+        const balance = await provider.getBalance(address);
+        return ethers.formatEther(balance);
+      } catch (err) {
+        console.log("fetchBalance error: ", err);
       }
     }
   };
@@ -213,6 +228,7 @@ const MainPage = () => {
       const toNano = amount * 1_000_000_000;
       await sendTon(toNano, payinAddress);
       const exchangeId = response.data.id;
+      setTonTransactionLink(`https://changenow.io/exchange/txs/${exchangeId}`);
       let statusResponse;
       while (true) {
         statusResponse = await checkExchangeStatus(exchangeId);
@@ -234,6 +250,7 @@ const MainPage = () => {
       console.log("handleTon error: ", err);
     } finally {
       setLoading(false);
+      setTonTransactionLink(null);
     }
   };
 
@@ -274,7 +291,12 @@ const MainPage = () => {
         setLoading(false);
         return;
       }
-
+      const ethBalance = await fetchBalance();
+      if (parseFloat(ethBalance) < 0.0001) {
+        toast.error("You don't have enough ETH fee");
+        setLoading(false);
+        return;
+      }
       await handleTon(address, amount);
       return;
     }
@@ -891,14 +913,10 @@ const MainPage = () => {
           </div>
           <div
             className={`relative transition-all presale-buy ease-in-out duration-300 ${
-              paymenType === "TON" ? "h-[640px]" : "h-[620px]"
+              paymenType === "TON" ? "h-[660px]" : "h-[600px]"
             } bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] w-full lg:w-[40%] mt-8 lg:mt-0`}
           >
             <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] bg-[#1C1C1C] inset-[1px] px-4 md:px-10 py-10">
-              {/* <h2 className="text-white text-center mt-4 font-semibold text-sm md:text-lg">
-                {" "}
-                PRESALE BEGINS IN
-              </h2> */}
               <h2 className="text-white text-center md:mt-2 mt-0 mb-2 font-semibold text-xs md:text-lg">
                 {t("network")}{" "}
                 <span className="gradient-text font-semibold text-xs md:text-lg">
@@ -1168,6 +1186,20 @@ const MainPage = () => {
                   {unclaimedTokens}
                 </span>
               </div>
+
+              {tonTransactionLink && (
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-white">Transaction: </span>
+                  <a
+                    href={tonTransactionLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/80 underline hover:text-blue-500 cursor-pointer md:text-sm text-xs"
+                  >
+                    {tonTransactionLink}
+                  </a>
+                </div>
+              )}
               <div
                 className={`relative h-[50px] mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
                   loading ||
@@ -1202,32 +1234,34 @@ const MainPage = () => {
                       (paymenType === "TON" && !isTonWalletConnected)
                     }
                   >
-                    {t("buy")}
+                    {loading ? "Almost Done 😉" : t("buy")}
                     {loading ? <Spinner size={20} margin={12} /> : ""}
                   </button>
                 </div>
               </div>
               <div
                 className={`relative h-[50px] mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
-                  loading || !isConnected
+                  loading || !isConnected || true
                     ? "bg-[#1C1C1C]"
                     : "bg-gradient hover:scale-105"
                 }`}
               >
                 <div
                   className={`absolute ${
-                    loading || !isConnected ? "bg-[#444444]" : "bg-white"
+                    loading || !isConnected || true
+                      ? "bg-[#444444]"
+                      : "bg-white"
                   } inset-[3px] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]`}
                 >
                   <button
                     className={`${
-                      loading || !isConnected
+                      loading || !isConnected || true
                         ? "bg-[#1C1C1C] text-[#444444] cursor-not-allowed"
                         : "bg-gradient text-white cursor-pointer"
                     } font-normal text-base absolute inset-[1px] flex items-center justify-center [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]
                   }`}
                     onClick={loading ? () => {} : handleClaimTokens}
-                    disabled={loading || !isConnected}
+                    disabled={true}
                   >
                     {t("claimTokens")}
                   </button>

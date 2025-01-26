@@ -22,6 +22,7 @@
   .roadmap-subtitle {
     margin-top: 190px;
   }
+
 }
 
 @media (max-width: 1980px) {
@@ -59,12 +60,15 @@
     width: 250px;
     height: 250px;
   }
+
+  .presale-buy {
+    height: 680px;
+  }
 }
 
 @media (max-width: 1024px) {
   .presale-buy {
-    width: 45%;
-    height: 650px;
+    height: 700px;
   }
 
   .token-billion {
@@ -104,7 +108,7 @@
 @media (max-width: 768px) {
   .presale-buy {
     width: 100% !important;
-    height: 620px;
+    height: 660px;
   }
 
   .about-description {
@@ -386,5 +390,10 @@
   .game-item {
     width: 120px;
     height: 120px;
+  }
+
+  .presale-buy {
+    width: 100% !important;
+    height: 670px;
   }
 }

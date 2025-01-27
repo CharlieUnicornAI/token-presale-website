@@ -1,15 +1,11 @@
 import { BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
 import { ethers } from "ethers";
-
+import { TOKEN_ABI, PRESALE_ABI } from "../contracts/contracts";
 import {
-  TOKEN_CONTRACT_ADDRESS,
-  PRESALE_CONTRACT_ADDRESS,
-  USDT_CONTRACT_ADDRESS,
-  USDC_CONTRACT_ADDRESS,
-  TOKEN_ABI,
-  PRESALE_ABI,
-} from "../contracts/contracts";
-import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
+  useAppKitAccount,
+  useAppKitProvider,
+  useAppKitNetwork,
+} from "@reown/appkit/react";
 
 // Define the two networks (BSC and Matic)
 const NETWORKS = {
@@ -50,6 +46,7 @@ const NETWORKS = {
 function useContract() {
   const { walletProvider } = useAppKitProvider("eip155");
   const { address, isConnected } = useAppKitAccount();
+  const { chainId } = useAppKitNetwork();
 
   const getProvider = () => {
     return new BrowserProvider(walletProvider);
@@ -60,10 +57,6 @@ function useContract() {
   };
 
   const getNetworkConfig = async () => {
-    const provider = getProvider();
-    const network = await provider.getNetwork();
-    const { chainId } = network;
-
     if (NETWORKS[chainId]) {
       const {
         PRESALE_CONTRACT_ADDRESS,
@@ -215,9 +208,6 @@ function useContract() {
 
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
-
       // Ensure we're connected to the correct network
       const { chain_id } = await getNetworkConfig(); // Get the correct chainId from network config
       if (chainId !== chain_id) {
@@ -265,9 +255,6 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
-
       // Ensure we're connected to the correct network
       const networkConfig = NETWORKS[chainId];
       if (!networkConfig) {
@@ -310,8 +297,6 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
 
       // Ensure we're connected to the correct network
       const { chain_id } = await getNetworkConfig(); // Get the correct chainId from the network config
@@ -323,12 +308,8 @@ function useContract() {
       const signer = await getSigner(provider);
 
       // Fetch the appropriate contract address based on the network
-      const {
-        PRESALE_CONTRACT_ADDRESS,
-        USDT_CONTRACT_ADDRESS,
-        USDC_CONTRACT_ADDRESS,
-        TOKEN_CONTRACT_ADDRESS,
-      } = await getNetworkConfig();
+      const { PRESALE_CONTRACT_ADDRESS, TOKEN_CONTRACT_ADDRESS } =
+        await getNetworkConfig();
 
       // Get the token contract instance
       const token = await getContract(
@@ -431,9 +412,6 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
-
       // Ensure we're connected to the correct network
       const networkConfig = NETWORKS[chainId]; // Get network config based on chainId
       if (!networkConfig) {

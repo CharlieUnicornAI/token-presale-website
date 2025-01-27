@@ -396,6 +396,7 @@ const MainPage = () => {
   useEffect(() => {
     const fetchUnclaimedTokens = async () => {
       try {
+        debugger;
         const allocation = await getPresaleAllocation();
         setUnclaimedTokens(allocation);
       } catch (error) {
@@ -408,7 +409,7 @@ const MainPage = () => {
     };
 
     fetchUnclaimedTokens();
-  }, [isConnected]);
+  }, [isConnected, paymenType]);
 
   useEffect(() => {
     const fetchTotalUsers = async () => {

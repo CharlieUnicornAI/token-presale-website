@@ -213,32 +213,6 @@ const MainPage = () => {
     }
   };
 
-  // Fetch minimal ton amount
-  const fetchMinimalTonAmount = async () => {
-    try {
-      const response = await axios.get(
-        `https://api.changenow.io/v2/exchange/min-amount`,
-        {
-          params: {
-            fromCurrency: "ton",
-            toCurrency: "usdc",
-            fromNetwork: "ton",
-            toNetwork: "base",
-            flow: "fixed-rate",
-          },
-          headers: {
-            "x-changenow-api-key":
-              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
-          },
-        }
-      );
-      const { minAmount } = response.data;
-      return minAmount;
-    } catch (err) {
-      console.log("fetch minimal ton amount error: ", err);
-    }
-  };
-
   // Get estimated USDC from TON
   const getEstimatedTonToUSDC = async (tonAmount) => {
     try {
@@ -252,7 +226,7 @@ const MainPage = () => {
             toAmount: "",
             fromNetwork: "ton",
             toNetwork: "base",
-            flow: "fixed-rate",
+            flow: "standard",
             type: "",
             useRateId: "",
           },
@@ -305,7 +279,7 @@ const MainPage = () => {
           toNetwork: "base",
           fromAmount: amount,
           address: usdcAddress,
-          flow: "fixed-rate",
+          flow: "standard",
         },
         {
           headers: {
@@ -369,8 +343,8 @@ const MainPage = () => {
         return;
       }
     } else if (paymenType === "TON") {
-      if (parseFloat(amount) < parseFloat(tonMinAmount)) {
-        toast.info(`Amount must be more than ${tonMinAmount} TON`);
+      if (parseFloat(amount) < 1) {
+        toast.info(`Amount must be more than 1 TON`);
         setLoading(false);
         return;
       }
@@ -533,20 +507,10 @@ const MainPage = () => {
   }, [isConnected, chainId]);
 
   useEffect(() => {
-    if (paymenType === "TON" && parseFloat(amount) < tonMinAmount) {
+    if (paymenType === "TON" && parseFloat(amount) < 1) {
       setReceiveable("");
     }
   }, [paymenType, amount]);
-
-  useEffect(() => {
-    const fetchMinTON = async () => {
-      const min = await fetchMinimalTonAmount();
-      setTonMinAmount(min);
-    };
-    if (paymenType === "TON") {
-      fetchMinTON();
-    }
-  }, [paymenType]);
 
   // Constant variables
   const tokenPriceInUsd = 0.00022;
@@ -1010,7 +974,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text ml-4 text-sm md:text-base">
                     <span className="font-semibold text-sm md:text-base">
-                      {paymenType === "TON" ? tonMinAmount : 1}
+                      1
                     </span>{" "}
                     {paymenType === "TON" ? "TON" : "USDT"}
                   </span>

@@ -1247,12 +1247,14 @@ const MainPage = () => {
                       type="number"
                       placeholder={paymenType === "CARD" ? `${t("soon")}` : "0"}
                       className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
-                        loading || !isConnected
+                        loading || !isConnected || paymenType === "CARD"
                           ? "text-[#CCCCCC] cursor-not-allowed"
                           : "text-white"
                       }`}
                       value={amount}
-                      disabled={loading || !isConnected}
+                      disabled={
+                        loading || !isConnected || paymenType === "CARD"
+                      }
                       onChange={handlePaymentChange}
                     />
                     <img
@@ -1292,9 +1294,17 @@ const MainPage = () => {
                       placeholder="0"
                       value={receiveable}
                       onChange={handlePaymentChange}
-                      disabled={loading || !isConnected || paymenType === "TON"}
+                      disabled={
+                        loading ||
+                        !isConnected ||
+                        paymenType === "TON" ||
+                        paymenType === "CARD"
+                      }
                       className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
-                        loading || !isConnected || paymenType === "TON"
+                        loading ||
+                        !isConnected ||
+                        paymenType === "TON" ||
+                        paymenType === "CARD"
                           ? "text-[#CCCCCC] cursor-not-allowed"
                           : "text-white"
                       }`}
@@ -1339,6 +1349,7 @@ const MainPage = () => {
                 className={`relative h-[50px] w-full mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
                   loading ||
                   !isConnected ||
+                  paymenType === "CARD" ||
                   (paymenType === "TON" && !isTonWalletConnected)
                     ? "bg-[#1C1C1C]"
                     : "bg-gradient hover:scale-105"
@@ -1348,6 +1359,7 @@ const MainPage = () => {
                   className={`absolute ${
                     loading ||
                     !isConnected ||
+                    paymenType === "CARD" ||
                     (paymenType === "TON" && !isTonWalletConnected)
                       ? "bg-[#444444]"
                       : "bg-white"
@@ -1357,6 +1369,7 @@ const MainPage = () => {
                     className={`${
                       loading ||
                       !isConnected ||
+                      paymenType === "CARD" ||
                       (paymenType === "TON" && !isTonWalletConnected)
                         ? "bg-[#1C1C1C] text-[#444444] cursor-not-allowed"
                         : "bg-gradient text-white cursor-pointer"
@@ -1366,6 +1379,7 @@ const MainPage = () => {
                     disabled={
                       loading ||
                       !isConnected ||
+                      paymenType === "CARD" ||
                       (paymenType === "TON" && !isTonWalletConnected)
                     }
                   >

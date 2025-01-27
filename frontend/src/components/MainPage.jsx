@@ -834,15 +834,12 @@ const MainPage = () => {
                         className="transition-all ease-in-out duration-300 hover:scale-105 [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] relative bg-gradient h-[40px] w-[150px] xl:w-[120px]"
                       >
                         <div className="absolute inset-[3px] bg-white [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)]">
-                          <a
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
                             className="absolute inset-[1px] flex items-center justify-center [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] bg-gradient 
                           text-white font-normal text-xs md:text-base md:p-0 p-4"
                           >
                             AUDIT {t("soon")}
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>

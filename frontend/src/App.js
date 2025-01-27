@@ -19,7 +19,7 @@ const metadata = {
   name: "charlieunicornai-sale.eu",
   description: "Charlie Unicorn AI presale website",
   url: "https://charlieunicornai-sale.eu", // origin must match your domain & subdomain
-  icons: ["/public/logo.png"],
+  icons: ["https://charlieunicornai-sale.eu/logo.png"],
 };
 
 // 4. Create a AppKit instance
@@ -47,7 +47,7 @@ function App() {
   });
 
   return (
-    <TonConnectUIProvider manifestUrl="https://charlie-presale.vercel.app/tonconnect-manifest.json">
+    <TonConnectUIProvider manifestUrl="https://charlieunicornai-sale.eu/tonconnect-manifest.json">
       <TonWalletProvider>
         <RoutesFile />
       </TonWalletProvider>

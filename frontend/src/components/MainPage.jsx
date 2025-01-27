@@ -897,7 +897,7 @@ const MainPage = () => {
                     </div>
                     <div className="flex flex-col xl:flex-row items-center justify-between mt-2 xl:mt-0">
                       <a
-                        href="https://basescan.org/address/0x8673A3038eE704435EfF81b330f0E78034e54BF2"
+                        href="https://bscscan.com/address/0x8673A3038eE704435EfF81b330f0E78034e54BF2"
                         target="_blank"
                         rel="noopener noreferrer"
                         className=" text-white hover:text-[#989898] transition-all ease-in-out duration-300 uppercase text-xs"

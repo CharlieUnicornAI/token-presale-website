@@ -408,7 +408,7 @@ const MainPage = () => {
     };
 
     fetchUnclaimedTokens();
-  }, [getPresaleAllocation]);
+  }, [isConnected]);
 
   useEffect(() => {
     const fetchTotalUsers = async () => {

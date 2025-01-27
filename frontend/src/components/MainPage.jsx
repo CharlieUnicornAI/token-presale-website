@@ -224,7 +224,7 @@ const MainPage = () => {
             toCurrency: "usdc",
             fromNetwork: "ton",
             toNetwork: "base",
-            flow: "standard",
+            flow: "fixed-rate",
           },
           headers: {
             "x-changenow-api-key":
@@ -252,7 +252,7 @@ const MainPage = () => {
             toAmount: "",
             fromNetwork: "ton",
             toNetwork: "base",
-            flow: "standard",
+            flow: "fixed-rate",
             type: "",
             useRateId: "",
           },
@@ -305,7 +305,7 @@ const MainPage = () => {
           toNetwork: "base",
           fromAmount: amount,
           address: usdcAddress,
-          flow: "standard",
+          flow: "fixed-rate",
         },
         {
           headers: {
@@ -369,13 +369,13 @@ const MainPage = () => {
         return;
       }
     } else if (paymenType === "TON") {
-      if (Number(amount) > Number(tonBalance)) {
-        toast.error("Not enough TON balance");
+      if (parseFloat(amount) < parseFloat(tonMinAmount)) {
+        toast.info(`Amount must be more than ${tonMinAmount} TON`);
         setLoading(false);
         return;
       }
-      if (parseFloat(amount) < parseFloat(tonMinAmount)) {
-        toast.info(`Amount must be more than ${tonMinAmount} TON`);
+      if (Number(amount) > Number(tonBalance)) {
+        toast.error("Not enough TON balance");
         setLoading(false);
         return;
       }

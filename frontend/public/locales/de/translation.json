@@ -175,5 +175,7 @@
     "totalAmount": "Gesamtbetrag:",
     "totalPurchase": "Gesamtkauf:",
     "buy": "KAUFEN",
-    "claimTokens": "Token beanspruchen"
+    "claimTokens": "Token beanspruchen",
+    "partners": "Partner",
+    "burn": "Liquiditätstoken direkt nach dem Vorverkauf verbrennen"
 }

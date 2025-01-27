@@ -175,5 +175,7 @@
     "totalAmount": "Całkowita kwota:",
     "totalPurchase": "Całkowity zakup:",
     "buy": "KUP",
-    "claimTokens": "Odbierz tokeny"
+    "claimTokens": "Odbierz tokeny",
+    "partners": "Partnerzy",
+    "burn": "Spalanie tokenów płynności zaraz po przedsprzedaży"
 }

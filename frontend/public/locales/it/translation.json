@@ -175,5 +175,7 @@
     "totalAmount": "Importo totale:",
     "totalPurchase": "Acquisto totale:",
     "buy": "ACQUISTARE",
-    "claimTokens": "Richiedi token"
+    "claimTokens": "Richiedi token",
+    "partners": "Partner",
+    "burn": "Bruciare i token di liquidità subito dopo la prevendita"
 }

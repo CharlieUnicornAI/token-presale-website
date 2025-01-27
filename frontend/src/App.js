@@ -16,9 +16,9 @@ const networks = [base, mainnet, bsc, polygon, solana];
 
 // 3. Create a metadata object - optional
 const metadata = {
-  name: "Charlie Unicorn AI Token Presale Website",
-  description: "Charlie Unicorn AI Token Presale Website",
-  url: "https://charlieunicornai-sale.eu/", // origin must match your domain & subdomain
+  name: "Charlie Unicorn AI presale website",
+  description: "Charlie Unicorn AI presale website",
+  url: "https://charlietheunicoin.shop/", // origin must match your domain & subdomain
   icons: ["/public/logo.png"],
 };
 

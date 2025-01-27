@@ -175,5 +175,7 @@
     "totalAmount": "Toplam Tutar:",
     "totalPurchase": "Toplam Satın Alma:",
     "buy": "SATIN ALMAK",
-    "claimTokens": "Jetonları Talep Et"
+    "claimTokens": "Jetonları Talep Et",
+    "partners": "Ortaklar",
+    "burn": "Ön satıştan hemen sonra likidite token'larını yakma"
 }

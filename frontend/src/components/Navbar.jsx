@@ -39,7 +39,7 @@ const Navbar = () => {
   return (
     <>
       <div className="w-[83%] mx-auto">
-        <div className="[clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] w-full relative bg-[#444444] md:h-[120px] h-[350px] px-2">
+        <div className="[clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] w-full relative bg-[#444444] md:h-[120px] h-[370px] px-2">
           <div className="bg-[#1C1C1C] border-0 [clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] absolute inset-[1px] w-full flex flex-col md:flex-row items-center justify-between gap-4 md:gap-20 py-3 px-5">
             <div className="flex flex-col md:flex-row items-center gap-4 md:gap-20">
               <img
@@ -76,6 +76,15 @@ const Navbar = () => {
                   onClick={() => setActive("tokenomics")}
                 >
                   {t("tokenomics")}
+                </a>
+                <a
+                  href="#partners"
+                  className={`${style.link} ${
+                    active === "partners" && "gradient-text"
+                  }`}
+                  onClick={() => setActive("partners")}
+                >
+                  {t("partners")}
                 </a>
               </div>
             </div>

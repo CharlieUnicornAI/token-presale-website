@@ -175,5 +175,7 @@
     "totalAmount": "Montant total:",
     "totalPurchase": "Achat total:",
     "buy": "ACHETER",
-    "claimTokens": "Réclamer des jetons"
+    "claimTokens": "Réclamer des jetons",
+    "partners": "Partenaires",
+    "burn": "Brûler des jetons de liquidité juste après la prévente"
 }

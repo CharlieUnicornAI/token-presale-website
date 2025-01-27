@@ -18,6 +18,7 @@ import Spinner from "./Spinner";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
 import { base, solana, bsc, polygon, mainnet } from "@reown/appkit/networks";
+import { FaTelegram, FaTwitter, FaYoutube, FaFacebook } from "react-icons/fa";
 
 const MainPage = () => {
   const [paymenType, setPaymentType] = useState("ETH");
@@ -51,6 +52,7 @@ const MainPage = () => {
   const { isTonWalletConnected, friendlyAddress, tonBalance, sendTon } =
     useCustomTonWallet();
   const allowedChainIds = [1, 137, 56, 8453]; // Example chain IDs for Ethereum, Polygon, Binance Smart Chain
+  const currentYear = new Date().getFullYear();
 
   // Handle change or other events
   const handlePaymentTypechange = async (newPaymentType, isBase) => {
@@ -211,6 +213,32 @@ const MainPage = () => {
     }
   };
 
+  // Fetch minimal ton amount
+  const fetchMinimalTonAmount = async () => {
+    try {
+      const response = await axios.get(
+        `https://api.changenow.io/v2/exchange/min-amount`,
+        {
+          params: {
+            fromCurrency: "ton",
+            toCurrency: "usdc",
+            fromNetwork: "ton",
+            toNetwork: "base",
+            flow: "standard",
+          },
+          headers: {
+            "x-changenow-api-key":
+              "85778ca2ea3e151e6309d467e96b27a5a873658e1954e0d5f4cf7d196145e74d",
+          },
+        }
+      );
+      const { minAmount } = response.data;
+      return minAmount;
+    } catch (err) {
+      console.log("fetch minimal ton amount error: ", err);
+    }
+  };
+
   // Get estimated USDC from TON
   const getEstimatedTonToUSDC = async (tonAmount) => {
     try {
@@ -235,10 +263,7 @@ const MainPage = () => {
         }
       );
       const { toAmount } = response.data;
-      if (toAmount) {
-        return toAmount;
-      }
-      return null;
+      return toAmount;
     } catch (err) {
       console.log("getEstimatedTonToUSDC error: ", err);
     }
@@ -280,7 +305,7 @@ const MainPage = () => {
           toNetwork: "base",
           fromAmount: amount,
           address: usdcAddress,
-          flow: "fixed-rate",
+          flow: "standard",
         },
         {
           headers: {
@@ -513,6 +538,16 @@ const MainPage = () => {
     }
   }, [paymenType, amount]);
 
+  useEffect(() => {
+    const fetchMinTON = async () => {
+      const min = await fetchMinimalTonAmount();
+      setTonMinAmount(min);
+    };
+    if (paymenType === "TON") {
+      fetchMinTON();
+    }
+  }, [paymenType]);
+
   // Constant variables
   const tokenPriceInUsd = 0.00022;
 
@@ -620,9 +655,12 @@ const MainPage = () => {
             textDecoration: "none",
           }}
         >
-          <div className="[clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] absolute inset-[1px] flex items-center justify-center bg-[#1C1C1C] pt-6 pb-6 p-5">
-            <span className="gradient-text text-sm md:text-lg font-semibold text-center">
+          <div className="[clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] absolute inset-[1px] flex flex-col items-center justify-center bg-[#1C1C1C] pt-6 pb-6 p-5">
+            <span className="gradient-text text-xs md:text-lg font-semibold text-center">
               {t("allTokensWillBeClaimable")}
+            </span>
+            <span className="gradient-text text-xs md:text-lg font-semibold text-center">
+              {t("burn")}
             </span>
           </div>
         </div>
@@ -750,8 +788,8 @@ const MainPage = () => {
         </div>
 
         {/* Presale Section */}
-        <div className="flex flex-col lg:flex-row items-start justify-between w-[83%] mx-auto mt-8">
-          <div className="bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] relative h-[610px] token-detail w-full lg:w-[50%]">
+        <div className="flex flex-col xl:flex-row items-start justify-between w-[83%] mx-auto mt-8">
+          <div className="bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] relative h-[610px] token-detail w-full xl:w-[50%]">
             <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] inset-[1px] bg-[#1C1C1C] px-4 md:px-10">
               <div className="mt-8 [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] relative bg-[#444444] token-header h-[90px]">
                 <div className="py-2 px-4 absolute inset-[1px] bg-[#1C1C1C] [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)]">
@@ -780,29 +818,30 @@ const MainPage = () => {
                           </button>
                         </div>
                       </div>
-                      <div className="transition-all ease-in-out duration-300 hover:scale-105 [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] relative bg-gradient h-[40px] w-[100px] xl:w-[80px]">
+                      <div className="transition-all ease-in-out duration-300 hover:scale-105 [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] relative bg-gradient h-[40px] w-[150px] xl:w-[120px]">
                         <div className="absolute inset-[3px] bg-white [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)]">
                           <button
                             className="absolute inset-[1px] [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] bg-gradient 
                           text-white font-normal text-xs md:text-base
                         "
                           >
-                            KYC
+                            KYC {t("soon")}
                           </button>
                         </div>
                       </div>
                       <div
                         style={{}}
-                        className="transition-all ease-in-out duration-300 hover:scale-105 [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] relative bg-gradient h-[40px] w-[100px] xl:w-[80px]"
+                        className="transition-all ease-in-out duration-300 hover:scale-105 [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] relative bg-gradient h-[40px] w-[150px] xl:w-[120px]"
                       >
                         <div className="absolute inset-[3px] bg-white [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)]">
                           <a
-                            href="https://www.cyberscope.io/audits/chrle"
+                            href="#"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="absolute inset-[1px] flex items-center justify-center [clip-path:polygon(0%_0.8em,_0.8em_0%,_100%_0%,_100%_calc(100%_-_0.8em),_calc(100%_-_0.8em)_100%,_0_100%)] bg-gradient 
-                          text-white font-normal text-xs md:text-base
-                        "
+                          text-white font-normal text-xs md:text-base md:p-0 p-4"
                           >
-                            AUDIT
+                            AUDIT {t("soon")}
                           </a>
                         </div>
                       </div>
@@ -861,7 +900,7 @@ const MainPage = () => {
                     </div>
                     <div className="flex flex-col xl:flex-row items-center justify-between mt-2 xl:mt-0">
                       <a
-                        href="https://basescan.org/address/0xdDc631F8197C9bb390B28a7604A2ddC65dC662FC"
+                        href="https://basescan.org/address/0x8673A3038eE704435EfF81b330f0E78034e54BF2"
                         target="_blank"
                         rel="noopener noreferrer"
                         className=" text-white hover:text-[#989898] transition-all ease-in-out duration-300 uppercase text-xs"
@@ -871,12 +910,12 @@ const MainPage = () => {
                       <div className="flex items-center justify-between gap-0 xl:gap-1">
                         <div className="gradient-text font-normal text-[8px] md:text-xs">
                           <span>
-                            0xdDc631F8197C9bb390B28a7604A2ddC65dC662FC
+                            0x8673A3038eE704435EfF81b330f0E78034e54BF2
                           </span>
                         </div>
                         <CopyToClipboardButton
                           textToCopy={
-                            "0xdDc631F8197C9bb390B28a7604A2ddC65dC662FC"
+                            "0x8673A3038eE704435EfF81b330f0E78034e54BF2"
                           }
                         />
                       </div>
@@ -948,7 +987,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text font-normal text-sm md:text-base">
                     {" "}
-                    BNB {t("network")}
+                    BNB
                   </span>
                 </div>
               </div>
@@ -957,12 +996,12 @@ const MainPage = () => {
           <div
             className={`relative transition-all presale-buy ease-in-out duration-300 ${
               paymenType === "TON" ? "h-[660px]" : "h-[600px]"
-            } bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] w-full lg:w-[40%] mt-8 lg:mt-0`}
+            } bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] w-full xl:w-[40%] mt-8 xl:mt-0`}
           >
-            <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] bg-[#1C1C1C] inset-[1px] px-4 md:px-10 py-10">
-              <h2 className="text-white text-center md:mt-2 mt-0 mb-2 font-semibold text-xs md:text-lg">
+            <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] bg-[#1C1C1C]  flex flex-col items-center justify-center inset-[1px] px-4 md:px-10 py-10">
+              <h2 className="text-white text-center md:mt-2 mt-0 mb-2 font-semibold text-lg">
                 {t("network")}{" "}
-                <span className="gradient-text font-semibold text-xs md:text-lg">
+                <span className="gradient-text font-semibold text-lg">
                   {t("multichain")}
                 </span>
               </h2>
@@ -974,7 +1013,7 @@ const MainPage = () => {
                   </span>
                   <span className="gradient-text ml-4 text-sm md:text-base">
                     <span className="font-semibold text-sm md:text-base">
-                      1
+                      {paymenType === "TON" ? tonMinAmount : 1}
                     </span>{" "}
                     {paymenType === "TON" ? "TON" : "USDT"}
                   </span>
@@ -1144,14 +1183,17 @@ const MainPage = () => {
                   >
                     <div className="ton [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-white inset-[3px]">
                       <button
-                        className="[clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-current inset-[1px] text-white"
+                        className="[clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-current text-sm md:text-base inset-[1px] text-white"
                         onClick={handleTonConnect}
                       >
                         {isTonWalletConnected
                           ? `Disconnect | ${friendlyAddress.substring(
                               0,
                               4
-                            )}... | ${tonBalance} TON`
+                            )}...${friendlyAddress.substring(
+                              friendlyAddress.length - 4,
+                              friendlyAddress.length
+                            )} | ${tonBalance} TON`
                           : "Connect TON Wallet"}
                       </button>
                     </div>
@@ -1203,7 +1245,7 @@ const MainPage = () => {
                     <input
                       name="amount"
                       type="number"
-                      placeholder="0"
+                      placeholder={paymenType === "CARD" ? `${t("soon")}` : "0"}
                       className={`bg-transparent w-[90%] md:w-full outline-none px-2 ${
                         loading || !isConnected
                           ? "text-[#CCCCCC] cursor-not-allowed"
@@ -1265,7 +1307,7 @@ const MainPage = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-between items-center mt-2">
+              <div className="flex w-full justify-between items-center mt-2">
                 <span className="text-white font-normal text-base">
                   {t("totalAmount")}{" "}
                 </span>
@@ -1273,7 +1315,7 @@ const MainPage = () => {
                   {receiveable}
                 </span>
               </div>
-              <div className="flex justify-between items-center mt-2">
+              <div className="flex w-full justify-between items-center mt-2">
                 <span className="text-white">{t("totalPurchase")} </span>
                 <span className="font-semibold text-base gradient-text">
                   {unclaimedTokens}
@@ -1281,7 +1323,7 @@ const MainPage = () => {
               </div>
 
               {tonTransactionLink && (
-                <div className="mt-2 flex items-center justify-between">
+                <div className="mt-2 flex w-full items-center justify-between">
                   <span className="text-white">Transaction: </span>
                   <a
                     href={tonTransactionLink}
@@ -1294,7 +1336,7 @@ const MainPage = () => {
                 </div>
               )}
               <div
-                className={`relative h-[50px] mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
+                className={`relative h-[50px] w-full mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
                   loading ||
                   !isConnected ||
                   (paymenType === "TON" && !isTonWalletConnected)
@@ -1333,7 +1375,7 @@ const MainPage = () => {
                 </div>
               </div>
               <div
-                className={`relative h-[50px] mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
+                className={`relative h-[50px] mt-4 w-full [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
                   loading || !isConnected || true
                     ? "bg-[#1C1C1C]"
                     : "bg-gradient hover:scale-105"
@@ -1507,36 +1549,43 @@ const MainPage = () => {
         <div className="absolute inset-[1px] bg-[#1C1C1C] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] px-4 flex flex-col md:flex-row justify-center gap-2 items-center md:justify-between">
           <div className="flex flex-row gap-8 items-center">
             <a
-              href="https://t.me/+oNLtgu5xw51kMzRh"
+              href="https://t.me/CharlieUnicornaiOfficial"
               target="_blank"
               rel="noreferrer"
             >
-              <img src="./telegram.png" alt="" className="icon" />
+              <FaTelegram className="lg:w-7 lg:h-7 w-5 h-5 text-white/80 transition-all duration-300 ease-in-out hover:scale-110" />
             </a>
+
             <a
               href="https://www.youtube.com/@CharlieUnicoin"
               target="_blank"
               rel="noreferrer"
             >
-              <img src="./youtube.png" alt="" className="icon" />
+              <FaYoutube className="lg:w-7 lg:h-7 w-5 h-5 text-white/80 transition-all duration-300 ease-in-out hover:scale-110" />
             </a>
             <a
-              href="https://x.com/CHRLE_UnicornAI"
+              href="https://x.com/CHRLEunicornAI"
               target="_blank"
               rel="noreferrer"
             >
-              <img src="./twitter.png" alt="" className="icon" />
+              <FaTwitter className="lg:w-7 lg:h-7 w-5 h-5 text-white/80 transition-all duration-300 ease-in-out hover:scale-110" />
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61572583794294"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FaFacebook className="lg:w-7 lg:h-7 w-5 h-5 text-white/80 transition-all duration-300 ease-in-out hover:scale-110" />
             </a>
           </div>
-          <a href="#home">
-            <div className="relative h-[45px] bg-gradient w-[200px] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 hover:scale-105">
-              <div className="absolute inset-[3px] bg-white [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]">
-                <button className="absolute inset-[1px] flex items-center justify-center bg-gradient text-white font-normal text-base [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]">
-                  Buy CHARLIE
-                </button>
-              </div>
-            </div>
-          </a>
+          <div className="flex flex-col lg:flex-row lg:gap-5 gap-0 items-center justify-center">
+            <h2 className="text-white/80 lg:text-base text-sm">
+              © Copyright {currentYear}
+            </h2>
+            <h2 className="text-white/80 lg:text-base text-sm">
+              All rights reserved
+            </h2>
+          </div>
         </div>
       </div>
     </>

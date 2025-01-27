@@ -175,5 +175,7 @@
     "totalAmount": "Montante total:",
     "totalPurchase": "Compra total:",
     "buy": "COMPRAR",
-    "claimTokens": "Reivindicar Tokens"
+    "claimTokens": "Reivindicar Tokens",
+    "partners": "Parceiros",
+    "burn": "Queima de tokens de liquidez logo após a pré-venda"
 }

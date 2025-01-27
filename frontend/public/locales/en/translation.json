@@ -176,5 +176,7 @@
     "totalPurchase": "Total Purchase:",
     "buy": "BUY",
     "claimTokens": "Claim Tokens",
-    "officialPage": "Official Page"
+    "officialPage": "Official Page",
+    "partners": "Partners",
+    "burn": "Burning liquidity tokens right after the presale"
 }

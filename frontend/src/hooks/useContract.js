@@ -1,52 +1,55 @@
 import { BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
 import { ethers } from "ethers";
-import { TOKEN_ABI, PRESALE_ABI } from "../contracts/contracts";
+
 import {
-  useAppKitAccount,
-  useAppKitProvider,
-  useAppKitNetwork,
-} from "@reown/appkit/react";
+  TOKEN_CONTRACT_ADDRESS,
+  PRESALE_CONTRACT_ADDRESS,
+  USDT_CONTRACT_ADDRESS,
+  USDC_CONTRACT_ADDRESS,
+  TOKEN_ABI,
+  PRESALE_ABI,
+} from "../contracts/contracts";
+import { useAppKitAccount, useAppKitProvider } from "@reown/appkit/react";
 
 // Define the two networks (BSC and Matic)
 const NETWORKS = {
   56: {
-    // BSC Mainnet
-    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9", // Replace with actual address
-    USDT_CONTRACT_ADDRESS: "0x55d398326f99059fF775485246999027B3197955", // BSC USDT contract address
-    USDC_CONTRACT_ADDRESS: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", // BSC USDC contract address
-    TOKEN_CONTRACT_ADDRESS: "0x6cbF13A8cDb39B13746906c32F3E1eCB089a1989", // BSC Token contract address
-    decimals: 18, // BSC USDT and USDC decimals
+    // Binance Smart Chain (BSC) Mainnet
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+    USDT_CONTRACT_ADDRESS: "0x55d398326f99059fF775485246999027B3197955",
+    USDC_CONTRACT_ADDRESS: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+    TOKEN_CONTRACT_ADDRESS: "0x6cbF13A8cDb39B13746906c32F3E1eCB089a1989",
+    decimals: 18,
   },
   137: {
     // Polygon (Matic) Mainnet
-    PRESALE_CONTRACT_ADDRESS: "0xb821B7fb4a82443Ff6D8480408F9558Db409FE2F", // Replace with actual address
-    USDT_CONTRACT_ADDRESS: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // Polygon USDT contract address
-    USDC_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Polygon USDC contract address
-    TOKEN_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Polygon Token contract address
-    decimals: 6, // Polygon USDT and USDC decimals
+    PRESALE_CONTRACT_ADDRESS: "0xb821B7fb4a82443Ff6D8480408F9558Db409FE2F",
+    USDT_CONTRACT_ADDRESS: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    USDC_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    TOKEN_CONTRACT_ADDRESS: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+    decimals: 6,
   },
   8453: {
-    // Base Network (example)
-    PRESALE_CONTRACT_ADDRESS: "0x22a91aC4BCC618BdC2Ce62020Fc165b75A10033B", // Replace with actual address
-    USDT_CONTRACT_ADDRESS: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", // Base Network USDT contract address
-    USDC_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Network USDC contract address
-    TOKEN_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Network Token contract address
-    decimals: 6, // Base Network USDT and USDC decimals
+    // Base Network
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+    USDT_CONTRACT_ADDRESS: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+    USDC_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    TOKEN_CONTRACT_ADDRESS: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    decimals: 6,
   },
   1: {
     // Ethereum Mainnet
-    PRESALE_CONTRACT_ADDRESS: "0x07D2AF0Dd0D5678C74f2C0d7adF34166dD37ae22", // Replace with actual address
-    USDT_CONTRACT_ADDRESS: "0xdac17f958d2ee523a2206206994597c13d831ec7", // Ethereum USDT contract address
-    USDC_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum USDC contract address
-    TOKEN_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // Ethereum Token contract address
-    decimals: 6, // Ethereum USDT and USDC decimals
+    PRESALE_CONTRACT_ADDRESS: "0x07D2AF0Dd0D5678C74f2C0d7adF34166dD37ae22",
+    USDT_CONTRACT_ADDRESS: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    USDC_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    TOKEN_CONTRACT_ADDRESS: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    decimals: 6,
   },
 };
 
 function useContract() {
   const { walletProvider } = useAppKitProvider("eip155");
   const { address, isConnected } = useAppKitAccount();
-  const { chainId } = useAppKitNetwork();
 
   const getProvider = () => {
     return new BrowserProvider(walletProvider);
@@ -57,6 +60,10 @@ function useContract() {
   };
 
   const getNetworkConfig = async () => {
+    const provider = getProvider();
+    const network = await provider.getNetwork();
+    const { chainId } = network;
+
     if (NETWORKS[chainId]) {
       const {
         PRESALE_CONTRACT_ADDRESS,
@@ -208,6 +215,9 @@ function useContract() {
 
       // Get the provider and network information
       const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
+
       // Ensure we're connected to the correct network
       const { chain_id } = await getNetworkConfig(); // Get the correct chainId from network config
       if (chainId !== chain_id) {
@@ -255,6 +265,9 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
+
       // Ensure we're connected to the correct network
       const networkConfig = NETWORKS[chainId];
       if (!networkConfig) {
@@ -297,6 +310,8 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
 
       // Ensure we're connected to the correct network
       const { chain_id } = await getNetworkConfig(); // Get the correct chainId from the network config
@@ -308,8 +323,12 @@ function useContract() {
       const signer = await getSigner(provider);
 
       // Fetch the appropriate contract address based on the network
-      const { PRESALE_CONTRACT_ADDRESS, TOKEN_CONTRACT_ADDRESS } =
-        await getNetworkConfig();
+      const {
+        PRESALE_CONTRACT_ADDRESS,
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        TOKEN_CONTRACT_ADDRESS,
+      } = await getNetworkConfig();
 
       // Get the token contract instance
       const token = await getContract(
@@ -412,6 +431,9 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
+      const network = await provider.getNetwork();
+      const { chainId } = network;
+
       // Ensure we're connected to the correct network
       const networkConfig = NETWORKS[chainId]; // Get network config based on chainId
       if (!networkConfig) {
@@ -440,6 +462,31 @@ function useContract() {
     }
   };
 
+  const getTotalTokensSoldAcrossNetworks = async () => {
+    try {
+      let totalTokens = 0;
+
+      for (const networkId of Object.keys(NETWORKS)) {
+        const provider = new ethers.JsonRpcProvider(
+          "https://rpc.ankr.com/base"
+        ); // Replace with relevant RPC URL
+        const { PRESALE_CONTRACT_ADDRESS } = NETWORKS[networkId];
+        const contract = new Contract(
+          PRESALE_CONTRACT_ADDRESS,
+          PRESALE_ABI,
+          provider
+        );
+        const tokensSold = await contract.totalTokensSold();
+        totalTokens += parseFloat(ethers.formatUnits(tokensSold, 18)); // Convert to decimal
+      }
+
+      return totalTokens.toFixed(2); // Return formatted value
+    } catch (error) {
+      console.error("Error fetching total tokens sold:", error);
+      return "Error";
+    }
+  };
+
   return {
     buy,
     getData,
@@ -450,6 +497,7 @@ function useContract() {
     getPresaleAllocation,
     getTotalUsers,
     getProvider,
+    getTotalTokensSoldAcrossNetworks,
   };
 }
 

@@ -241,6 +241,10 @@
     width: 150px;
     height: 150px;
   }
+
+  .payment-dropdown {
+    height: 330px;
+  }
 }
 
 @media (max-width: 375px) {
@@ -311,6 +315,10 @@
   .game-item {
     width: 150px;
     height: 150px;
+  }
+
+  .payment-dropdown {
+    height: 330px;
   }
 }
 
@@ -395,5 +403,9 @@
   .presale-buy {
     width: 100% !important;
     height: 670px;
+  }
+
+  .payment-dropdown {
+    height: 330px;
   }
 }

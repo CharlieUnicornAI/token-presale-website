@@ -9,7 +9,6 @@ import { PRESALE_CONTRACT_ADDRESS, PRESALE_ABI } from "../contracts/contracts";
 import { ethers } from "ethers";
 import { useTonConnectUI } from "@tonconnect/ui-react";
 import { useCustomTonWallet } from "../context/TonWalletContext";
-import { Link, useFetcher } from "react-router-dom";
 import AccordianGroup from "./AccordianGroup";
 import ProgressBar from "./ProgressBar";
 import CircularChat from "./CircularChat";
@@ -17,8 +16,17 @@ import "../responsive.css";
 import Spinner from "./Spinner";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
-import { base, solana, bsc, polygon, mainnet } from "@reown/appkit/networks";
+import { base, bsc, polygon, mainnet } from "@reown/appkit/networks";
 import { FaTelegram, FaTwitter, FaYoutube, FaFacebook } from "react-icons/fa";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
+import * as web3 from "@solana/web3.js";
 
 const MainPage = () => {
   const [paymenType, setPaymentType] = useState("ETH");
@@ -35,7 +43,8 @@ const MainPage = () => {
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
   const [unclaimedTokens, setUnclaimedTokens] = useState(null);
   const [tonTransactionLink, setTonTransactionLink] = useState(null);
-  const [tonMinAmount, setTonMinAmount] = useState(null);
+  const [txSig, setTxSig] = useState("");
+  const { sendTransaction } = useWallet();
   const { t } = useTranslation();
   const {
     buy,
@@ -51,6 +60,10 @@ const MainPage = () => {
   const [tonConnectUI] = useTonConnectUI();
   const { isTonWalletConnected, friendlyAddress, tonBalance, sendTon } =
     useCustomTonWallet();
+  const { connection } = useConnection();
+  const { publicKey, connected, connect, disconnect, wallet } = useWallet();
+  const { setVisible } = useWalletModal();
+  const [solanaBalance, setSolanaBalance] = useState(null);
   const allowedChainIds = [1, 137, 56, 8453]; // Example chain IDs for Ethereum, Polygon, Binance Smart Chain
   const currentYear = new Date().getFullYear();
 
@@ -108,6 +121,28 @@ const MainPage = () => {
     }
   };
 
+  const handleSolanaWallet = async () => {
+    try {
+      if (connected) {
+        await disconnect();
+      } else {
+        setVisible(true); // ✅ Open the wallet selection modal first
+
+        // ✅ Wait for the user to select a wallet
+        const checkWalletSelected = setInterval(() => {
+          if (wallet) {
+            clearInterval(checkWalletSelected);
+            connect().catch((err) =>
+              console.error("Wallet connection failed:", err)
+            );
+          }
+        }, 500); // Check every 500ms if the user selected a wallet
+      }
+    } catch (error) {
+      console.error("Solana Wallet Connection Error:", error);
+    }
+  };
+
   const handlePaymentChange = async (e) => {
     const precision = 15;
     const formatValue = (value) => {
@@ -149,6 +184,28 @@ const MainPage = () => {
         setReceiveable(formatValue(value).toString());
       }
       return;
+    }
+
+    const numericValue = parseFloat(inputValue);
+
+    if (paymenType === "SOL") {
+      const SOL_USD_RATE = 235; // 1 SOL = 250 USD
+      const TOKEN_USD_RATE = 0.0002; // 1 token = 0.0002 USD
+      const TOKENS_PER_SOL = SOL_USD_RATE / TOKEN_USD_RATE; // Tokens per SOL
+
+      if (inputName === "amount") {
+        // Calculate tokens from SOL
+        setAmount(inputValue); // Store raw input as SOL amount
+        const tokens = numericValue * TOKENS_PER_SOL; // Tokens calculation
+        setReceiveable(formatValue(tokens).toString());
+      } else if (inputName === "receiveable") {
+        // Calculate SOL from tokens
+        setReceiveable(inputValue); // Store raw input as token amount
+        const sol = numericValue / TOKENS_PER_SOL; // SOL calculation
+        setAmount(formatValue(sol).toString());
+      }
+
+      return; // Exit the function after handling SOL
     }
 
     if (!price) {
@@ -360,11 +417,60 @@ const MainPage = () => {
       }
       const ethBalance = await fetchBalance();
       if (parseFloat(ethBalance) < 0.00005) {
-        toast.error("You don't have enough ETH fee");
+        toast.error("You don't have enough ETH(BASE) fee");
         setLoading(false);
         return;
       }
       await handleTon(address, amount);
+      return;
+    }
+
+    // Check if SOL is selected and Wallet is connected
+    else if (paymenType === "SOL") {
+      if (!connection || !publicKey) {
+        toast.error("Please connect your Solana wallet.");
+        setLoading(false);
+        return;
+      }
+
+      // Define the Owner Wallet Address where funds should be sent
+      const ownerWallet = new web3.PublicKey(
+        "ECUitdYwUjyJk5K7Rpg3YR9drFn6esvYq4vjHiAjn2gN"
+      );
+
+      // Check if the user has enough SOL
+      if (amount > solanaBalance) {
+        toast.error("Not enough SOL balance.");
+        setLoading(false);
+        return;
+      }
+
+      const transaction = new web3.Transaction();
+      const instruction = web3.SystemProgram.transfer({
+        fromPubkey: publicKey, // User's Wallet Address
+        lamports: amount * web3.LAMPORTS_PER_SOL, // Convert SOL to Lamports
+        toPubkey: ownerWallet, // Owner's Wallet Address
+      });
+
+      transaction.add(instruction);
+
+      try {
+        // Send transaction
+        const signature = await sendTransaction(transaction, connection);
+        setTxSig(signature);
+
+        toast.success("Transaction Successful! 🎉");
+        console.log("Transaction Signature: ", signature);
+
+        // Update Balance
+        const newBalance = solanaBalance - amount;
+        setSolanaBalance(newBalance);
+      } catch (error) {
+        console.log(error);
+        toast.error("Transaction failed!");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
     try {
@@ -396,7 +502,6 @@ const MainPage = () => {
   useEffect(() => {
     const fetchUnclaimedTokens = async () => {
       try {
-        debugger;
         const allocation = await getPresaleAllocation();
         setUnclaimedTokens(allocation);
       } catch (error) {
@@ -407,9 +512,8 @@ const MainPage = () => {
         setError(error.message || "Failed to fetch unclaimed tokens.");
       }
     };
-
     fetchUnclaimedTokens();
-  }, [isConnected, paymenType]);
+  }, [getPresaleAllocation]);
 
   useEffect(() => {
     const fetchTotalUsers = async () => {
@@ -476,12 +580,33 @@ const MainPage = () => {
     fetchContractData();
   }, []);
 
+  // Fetch Solana wallet balance when connected
+  useEffect(() => {
+    const fetchSolanaBalance = async () => {
+      if (connected && publicKey) {
+        try {
+          const balanceInLamports = await connection.getBalance(publicKey);
+          setSolanaBalance(balanceInLamports / 1e9); // Convert to SOL
+        } catch (error) {
+          console.error("Error fetching Solana balance:", error);
+        }
+      }
+    };
+
+    fetchSolanaBalance();
+  }, [connected, publicKey, connection]);
+
   useEffect(() => {
     const _getPrice = async () => {
       const _price = await getPrice();
       setPrice(_price);
     };
-    if (isConnected) _getPrice();
+    if (isConnected) {
+      _getPrice();
+      if (paymenType === "ETH") {
+        switchNetwork(mainnet);
+      }
+    }
   }, [isConnected]);
 
   useEffect(() => {
@@ -513,6 +638,12 @@ const MainPage = () => {
     }
   }, [paymenType, amount]);
 
+  useEffect(() => {
+    if (!isConnected) {
+      toast.info("Please connect your wallet !");
+    }
+  }, [isConnected]);
+
   // Constant variables
   const tokenPriceInUsd = 0.00022;
 
@@ -521,27 +652,32 @@ const MainPage = () => {
       name: t("ceoName"),
       role: "CEO",
       photo: "ceo.jpg",
-      flag: "poland_flag.svg",
+      flag: "pl.svg",
       linkedin:
         "https://pl.linkedin.com/in/%C5%82ukasz-szymborski-8bab38205?utm_source=share&utm_medium=member_mweb&utm_campaign=share_via&utm_content=profile",
     },
-  ];
-
-  const developers = [
     {
-      name: "Arek",
+      name: "Mateusz Czylok",
+      role: "Programmer & Manager",
+      photo: "pm1.jpg",
+      flag: "pl.svg",
     },
     {
-      name: "Mati",
+      name: "Arkadiusz Gasewicz",
+      role: "Blockchain Developer",
+      photo: "pm2.jpg",
+      flag: "pl.svg",
+    },
+    {
+      name: "Judy",
+      role: "Sr. Frontend Engineer",
+      photo: "judy.jpg",
+      flag: "uk.svg",
     },
     {
       name: "Pah",
-    },
-    {
-      name: "Vlad",
-    },
-    {
-      name: "Juri",
+      role: "Blockchain Developer",
+      photo: "pah.jpg",
     },
   ];
 
@@ -957,7 +1093,9 @@ const MainPage = () => {
           </div>
           <div
             className={`relative transition-all presale-buy ease-in-out duration-300 ${
-              paymenType === "TON" ? "h-[660px]" : "h-[600px]"
+              paymenType === "TON" || paymenType === "SOL"
+                ? "h-[660px]"
+                : "h-[600px]"
             } bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] w-full xl:w-[40%] mt-8 xl:mt-0`}
           >
             <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] bg-[#1C1C1C]  flex flex-col items-center justify-center inset-[1px] px-4 md:px-10 py-10">
@@ -1023,7 +1161,7 @@ const MainPage = () => {
                   </div>
                 </div>
                 {paymentDropdownOpen && (
-                  <div className="payment-dropdown flex flex-col w-full absolute bg-[#212121] h-[330px] mt-[-14px] border-[2px] rounded-lg border-[#444444] z-20">
+                  <div className="payment-dropdown flex flex-col w-full absolute bg-[#212121] h-[365px] mt-[-14px] border-[2px] rounded-lg border-[#444444] z-20">
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
@@ -1034,7 +1172,7 @@ const MainPage = () => {
                       <img
                         src="./eth.svg"
                         alt="ETH"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">ETH</span>
                     </button>
@@ -1048,7 +1186,7 @@ const MainPage = () => {
                       <img
                         src="./eth.svg"
                         alt="ETH"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">ETH(Base)</span>
                     </button>
@@ -1062,7 +1200,7 @@ const MainPage = () => {
                       <img
                         src="./bnb.svg"
                         alt="ETH"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">BNB</span>
                     </button>
@@ -1076,7 +1214,7 @@ const MainPage = () => {
                       <img
                         src="./pol.svg"
                         alt="POL"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">POL</span>
                     </button>
@@ -1090,7 +1228,7 @@ const MainPage = () => {
                       <img
                         src="./usdt.svg"
                         alt="USDT"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">USDT</span>
                     </button>
@@ -1104,7 +1242,7 @@ const MainPage = () => {
                       <img
                         src="./usdc.svg"
                         alt="USDT"
-                        className=" w-4 h-4 sm:w-5 sm:h-5"
+                        className=" w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">USDC</span>
                     </button>
@@ -1118,9 +1256,23 @@ const MainPage = () => {
                       <img
                         src="./card.svg"
                         alt="CARD"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">CARD</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        setIsPaymentDropdownOpen(false);
+                        handlePaymentTypechange("SOL", true);
+                      }}
+                      className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
+                    >
+                      <img
+                        src="./sol.svg"
+                        alt="SOL"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
+                      />
+                      <span className="text-sm md:text-base">SOL</span>
                     </button>
                     <button
                       onClick={(e) => {
@@ -1132,7 +1284,7 @@ const MainPage = () => {
                       <img
                         src="./ton.svg"
                         alt="TON"
-                        className="w-4 h-4 sm:w-5 sm:h-5"
+                        className="w-4 h-4 sm:w-5 sm:h-5 mr-2"
                       />
                       <span className="text-sm md:text-base">TON</span>
                     </button>
@@ -1161,6 +1313,28 @@ const MainPage = () => {
                     </div>
                   </div>
                 )}
+                {paymenType === "SOL" && (
+                  <div
+                    className="mb-2 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] relative bg-custom-gradient-button 
+h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
+                  >
+                    <div className="ton [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-white inset-[3px]">
+                      <button
+                        className="[clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-current inset-[1px] text-white"
+                        onClick={handleSolanaWallet}
+                      >
+                        {connected
+                          ? `Disconnect | ${publicKey
+                              ?.toBase58()
+                              .substring(0, 4)}... | ${
+                              solanaBalance | "Loading..."
+                            } SOL`
+                          : "Connect Solana Wallet"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Input Fields */}
                 <div>
                   <div className="text-white mb-2 flex justify-between">
@@ -1177,6 +1351,8 @@ const MainPage = () => {
                           ? " USDT"
                           : paymenType === "USDC"
                           ? " USDC"
+                          : paymenType === "SOL"
+                          ? " SOL"
                           : paymenType === "CARD"
                           ? " CARD"
                           : " TON"}
@@ -1231,6 +1407,8 @@ const MainPage = () => {
                           ? "./usdt.svg"
                           : paymenType === "USDC"
                           ? "./usdc.svg"
+                          : paymenType === "SOL"
+                          ? "./sol.svg"
                           : paymenType === "CARD"
                           ? "./usd.png"
                           : "./ton.svg"
@@ -1457,18 +1635,19 @@ const MainPage = () => {
           <AccordianGroup items={AccordianGroupItems} />
         </div>
 
-        <div className="mt-14">
+        {/* TEMAS */}
+        <div id="partners" className="mt-14">
           <div className="flex items-center justify-center">
             <span className="text-white font-semibold text-2xl">
               {t("TEAM")}
             </span>
           </div>
           {/* Members Section */}
-          <div className="flex flex-col md:flex-row gap-10 items-center w-[83%] justify-between mx-auto mt-8">
+          <div className="flex flex-col md:grid md:grid-cols-5 gap-10 items-center w-[83%] justify-between mx-auto mt-8">
             {members.map((member, index) => (
               <div
                 key={index}
-                className="relative member w-[360px] clip bg-gradient h-[360px]"
+                className="relative member clip bg-gradient h-[360px]"
               >
                 <div className="absolute clip bg-[#1C1C1C] inset-[1px] flex flex-col items-center justify-center">
                   <img
@@ -1484,40 +1663,25 @@ const MainPage = () => {
                   </p>
                   <div className="flex items-center justify-center mt-2">
                     {member.linkedin && (
-                      <Link to={member.linkedin}>
+                      <a
+                        href={member.linkedin}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <img src="linkedin.svg" className="w-5 h-5" />
-                      </Link>
+                      </a>
                     )}
-                    <img
-                      src={member.flag}
-                      alt={member.name}
-                      className={`w-8 h-4 ${member.linkedin && "ml-4"}`}
-                    />
+                    {member.flag && (
+                      <img
+                        src={`/flags/${member.flag}`}
+                        alt={member.name}
+                        className={`w-6 ${member.linkedin && "ml-4"}`}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-            <div className="relative bg-gradient h-[360px] member w-[80%] clip">
-              <div className="absolute clip bg-[#1C1C1C] inset-[1px] flex flex-col items-center justify-center p-8 z-50">
-                <h1 className="gradient-text font-semibold text-md mb-4">
-                  {t("ourDevelopers")}
-                </h1>
-                {developers.map((dev, index) => (
-                  <div
-                    className={`relative bg-gradient [clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] h-[50px] w-full ${
-                      index > 0 && "mt-4"
-                    }`}
-                    key={index}
-                  >
-                    <div className="absolute bg-[#1C1C1C] opacity-90 [clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] inset-[1px] flex items-center justify-center">
-                      <h1 className="gradient-text font-semibold text-sm lg:text-lg">
-                        {dev.name}
-                      </h1>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>

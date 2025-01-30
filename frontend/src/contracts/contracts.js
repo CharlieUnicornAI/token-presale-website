@@ -5,6 +5,24 @@ export const USDT_CONTRACT_ADDRESS =
 export const USDC_CONTRACT_ADDRESS =
   "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
+export const NETWORKS = {
+  56: {
+    // Binance Smart Chain (BSC)
+    rpcUrl: "https://bsc-dataseed.binance.org/",
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+  },
+  8453: {
+    // Base Network
+    rpcUrl: "https://mainnet.base.org/",
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+  },
+  137: {
+    // Polygon
+    rpcUrl: "https://polygon-rpc.com/",
+    PRESALE_CONTRACT_ADDRESS: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+  },
+};
+
 export const PER_DOLLAR_PRICE = 20000;
 export const PER_USDT_TO_BNB = 4000.86;
 

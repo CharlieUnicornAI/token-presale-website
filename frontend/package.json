@@ -8,6 +8,9 @@
     "@reown/appkit-adapter-ethers": "^1.5.1",
     "@reown/appkit-adapter-solana": "^1.6.2",
     "@reown/appkit-siwe": "^1.5.1",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -40,9 +43,12 @@
     "web3": "^4.7.0"
   },
   "scripts": {
-    "start": "react-scripts start -H 0.0.0.0",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "build": "react-app-rewired build",
+    "clean": "shx mkdir -p build lib && shx rm -rf build lib",
+    "lint": "prettier --check 'src/{*,**/*}.{ts,tsx,js,jsx,json}' && eslint",
+    "start": "react-app-rewired start",
+    "test": "CI=true react-app-rewired test --passWithNoTests",
+    "test:watch": "react-app-rewired test --passWithNoTests",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -64,8 +70,20 @@
     ]
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "autoprefixer": "^10.4.20",
+    "browserify-zlib": "^0.2.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "https-browserify": "^1.0.0",
     "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15"
+    "process": "^0.11.10",
+    "react-app-rewired": "^2.2.1",
+    "source-map-loader": "^5.0.0",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "tailwindcss": "^3.4.15",
+    "util": "^0.12.5",
+    "webpack": "^5.97.1"
   }
 }

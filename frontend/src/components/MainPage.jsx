@@ -41,10 +41,11 @@ const MainPage = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
-  const [unclaimedTokens, setUnclaimedTokens] = useState(null);
   const [tonTransactionLink, setTonTransactionLink] = useState(null);
   const [txSig, setTxSig] = useState("");
   const { sendTransaction } = useWallet();
+  const [totalAllocations, setTotalAllocations] = useState(null); // Initialize state for total allocations
+  const [fetchError, setFetchError] = useState(null); // State to hold any error message
   const { t } = useTranslation();
   const {
     buy,
@@ -66,6 +67,25 @@ const MainPage = () => {
   const [solanaBalance, setSolanaBalance] = useState(null);
   const allowedChainIds = [1, 137, 56, 8453]; // Example chain IDs for Ethereum, Polygon, Binance Smart Chain
   const currentYear = new Date().getFullYear();
+
+  const NETWORKS = [
+    {
+      rpcUrl: "https://rpc.ankr.com/base",
+      contractAddress: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+    },
+    {
+      rpcUrl: "https://rpc.ankr.com/eth",
+      contractAddress: "0x07D2AF0Dd0D5678C74f2C0d7adF34166dD37ae22",
+    },
+    {
+      rpcUrl: "https://rpc.ankr.com/polygon",
+      contractAddress: "0xb821B7fb4a82443Ff6D8480408F9558Db409FE2F",
+    },
+    {
+      rpcUrl: "https://rpc.ankr.com/bsc",
+      contractAddress: "0x9C29D024c6CdFae7eA5df76068A3B63b904dC3b9",
+    },
+  ];
 
   // Handle change or other events
   const handlePaymentTypechange = async (newPaymentType, isBase) => {
@@ -500,76 +520,73 @@ const MainPage = () => {
 
   // Hooks
   useEffect(() => {
-    const fetchUnclaimedTokens = async () => {
+    const fetchAllocations = async () => {
+      let totalAmount = 0; // Start with 0 allocation
+
       try {
-        const allocation = await getPresaleAllocation();
-        setUnclaimedTokens(allocation);
+        for (const network of NETWORKS) {
+          const provider = new ethers.JsonRpcProvider(network.rpcUrl);
+          const contract = new ethers.Contract(
+            network.contractAddress,
+            PRESALE_ABI,
+            provider
+          );
+
+          // Fetch the presale allocation for the network
+          const allocation = await contract.presaleAllocations(address); // Replace with the actual wallet address
+          const formattedAllocation = parseFloat(
+            ethers.formatUnits(allocation, 18)
+          ); // Convert to float
+
+          totalAmount += formattedAllocation; // Sum the allocations
+        }
+
+        // Set the total amount only if it is greater than 0
+        if (totalAmount > 0) {
+          setTotalAllocations(totalAmount);
+        } else {
+          setTotalAllocations(0); // If 0, set it to null to hide the result
+        }
       } catch (error) {
-        console.error(
-          "Error fetching unclaimed tokens:",
-          error.message || error
+        console.error("Error fetching presale allocation:", error.message);
+        setFetchError(
+          "Failed to fetch presale allocations. Please try again later."
         );
-        setError(error.message || "Failed to fetch unclaimed tokens.");
-      }
-    };
-    fetchUnclaimedTokens();
-  }, [getPresaleAllocation]);
-
-  useEffect(() => {
-    const fetchTotalUsers = async () => {
-      try {
-        // Connect to the Ethereum network using a public RPC provider
-        const provider = new ethers.JsonRpcProvider(
-          "https://rpc.ankr.com/base"
-        );
-
-        // Create a contract instance
-        const contract = new ethers.Contract(
-          PRESALE_CONTRACT_ADDRESS,
-          PRESALE_ABI,
-          provider
-        );
-
-        // Call the `totalUsers` function
-        const users = await contract.totalUsers();
-        setTotalUsers(users.toString()); // Convert BigNumber to string
-      } catch (error) {
-        console.error("Error fetching total users:", error.message);
-        setError("Failed to fetch total users. Please try again later.");
       }
     };
 
-    fetchTotalUsers();
-  }, []);
+    fetchAllocations();
+  }, []); // Empty dependency array to run once when the component mounts
 
   useEffect(() => {
     const fetchContractData = async () => {
+      let totalUsersSum = 0;
+      let totalTokensSoldSum = 0;
+
       try {
-        // Connect to the Ethereum network using a public RPC provider
-        const provider = new ethers.JsonRpcProvider(
-          "https://rpc.ankr.com/base"
-        );
+        for (const network of NETWORKS) {
+          const provider = new ethers.JsonRpcProvider(network.rpcUrl);
+          const contract = new ethers.Contract(
+            network.contractAddress,
+            PRESALE_ABI,
+            provider
+          );
 
-        // Create a contract instance
-        const contract = new ethers.Contract(
-          PRESALE_CONTRACT_ADDRESS,
-          PRESALE_ABI,
-          provider
-        );
+          // Fetch total users
+          const users = await contract.totalUsers();
+          totalUsersSum += parseInt(users.toString(), 10);
 
-        // Fetch `totalUsers` from the contract
-        const users = await contract.totalUsers();
-        setTotalUsers(users.toString()); // Convert BigNumber to string
-
-        // Fetch `totalTokensSold` from the contract
-        const tokensSold = await contract.totalTokensSold();
-        const formattedTokensSold = parseFloat(
-          ethers.formatUnits(tokensSold, 18)
-        ).toFixed(2); // Format to two decimals
-        setTotalTokensSold(formattedTokensSold);
+          // Fetch total tokens sold
+          const tokensSold = await contract.totalTokensSold();
+          totalTokensSoldSum += parseFloat(ethers.formatUnits(tokensSold, 18));
+        }
 
         // Calculate total USD raised
-        const usdRaised = (formattedTokensSold * tokenPriceInUsd).toFixed(2); // Multiply tokens sold by price
+        const usdRaised = (totalTokensSoldSum * tokenPriceInUsd).toFixed(2);
+
+        // Update state
+        setTotalUsers(totalUsersSum);
+        setTotalTokensSold(totalTokensSoldSum.toFixed(2));
         setTotalUsdRaised(usdRaised);
       } catch (error) {
         console.error("Error fetching contract data:", error.message);
@@ -1468,7 +1485,7 @@ h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
               <div className="flex w-full justify-between items-center mt-2">
                 <span className="text-white">{t("totalPurchase")} </span>
                 <span className="font-semibold text-base gradient-text">
-                  {unclaimedTokens}
+                  {totalAllocations !== null ? totalAllocations : 0}
                 </span>
               </div>
 

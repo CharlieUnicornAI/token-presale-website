@@ -15,7 +15,19 @@ import {
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import {
   PhantomWalletAdapter,
-  SolflareWalletAdapter,
+  TrustWalletAdapter,
+  AlphaWalletAdapter,
+  BitgetWalletAdapter,
+  BitpieWalletAdapter,
+  CloverWalletAdapter,
+  AvanaWalletAdapter,
+  Coin98WalletAdapter,
+  CoinbaseWalletAdapter,
+  CoinhubWalletAdapter,
+  FractalWalletAdapter,
+  HuobiWalletAdapter,
+  HyperPayWalletAdapter,
+  KeystoneWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
 // 1. Get projectId
@@ -46,7 +58,22 @@ createAppKit({
 });
 
 // 5. Setup Solana wallet adapters
-const wallets = [new PhantomWalletAdapter(), new SolflareWalletAdapter()];
+const wallets = [
+  new PhantomWalletAdapter(),
+  new TrustWalletAdapter(),
+  new AlphaWalletAdapter(),
+  new AvanaWalletAdapter(),
+  new BitgetWalletAdapter(),
+  new BitpieWalletAdapter(),
+  new CloverWalletAdapter(),
+  new Coin98WalletAdapter(),
+  new CoinbaseWalletAdapter(),
+  new CoinhubWalletAdapter(),
+  new FractalWalletAdapter(),
+  new HuobiWalletAdapter(),
+  new HyperPayWalletAdapter(),
+  new KeystoneWalletAdapter(),
+];
 
 const isTonConnectSdkError = (error) => {
   return error && error.code && error.code.startsWith("TON_CONNECT_");

@@ -19,6 +19,7 @@
     "@tonconnect/ui-react": "^2.0.9",
     "3d-react-carousal": "^5.0.0",
     "axios": "^1.7.9",
+    "big-integer": "^1.6.52",
     "chart.js": "^4.4.6",
     "ethers": "^6.13.4",
     "highcharts": "^12.1.0",

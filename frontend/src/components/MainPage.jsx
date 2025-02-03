@@ -8,7 +8,6 @@ import {
   useAppKitAccount,
   useAppKitNetwork,
   useAppKitProvider,
-  useDisconnect,
 } from "@reown/appkit/react";
 import { PRESALE_ABI } from "../contracts/contracts";
 import { ethers } from "ethers";
@@ -31,6 +30,7 @@ import {
 } from "@solana/web3.js";
 import { useAppKitConnection } from "@reown/appkit-adapter-solana/react";
 import { appkitModal } from "../App";
+import bigInt from "big-integer";
 
 const MainPage = () => {
   const [paymenType, setPaymentType] = useState("ETH");
@@ -47,7 +47,6 @@ const MainPage = () => {
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
   const [tonTransactionLink, setTonTransactionLink] = useState(null);
   const [totalAllocations, setTotalAllocations] = useState(null); // Initialize state for total allocations
-  const [fetchError, setFetchError] = useState(null); // State to hold any error message
   const { t } = useTranslation();
   const {
     buy,
@@ -65,7 +64,8 @@ const MainPage = () => {
   const currentYear = new Date().getFullYear();
   const { connection } = useAppKitConnection();
   const { walletProvider } = useAppKitProvider("solana");
-  const { disconnect } = useDisconnect();
+  const [bscWallet, setBscWallet] = useState(""); // Store BSC Wallet
+  const [isBscModalOpen, setIsBscModalOpen] = useState(false); // Modal state
 
   const NETWORKS = [
     {
@@ -453,7 +453,8 @@ const MainPage = () => {
       );
 
       const latestBlockhash = await connection.getLatestBlockhash();
-      const lamportsToSend = Math.round(Number(amount) * LAMPORTS_PER_SOL);
+      const lts = parseInt(Number(amount) * LAMPORTS_PER_SOL);
+      const lamportsToSend = bigInt(lts);
 
       const transaction = new Transaction({
         feePayer: wallet,
@@ -473,6 +474,32 @@ const MainPage = () => {
           connection
         );
         toast.success("Transaction Successful! 🎉");
+        const amountInSol = Number(lamportsToSend) / LAMPORTS_PER_SOL;
+        // Calculate token amount based on SOL to token conversion
+        const SOL_USD_RATE = 235; // Example: 1 SOL = 235 USD (Update dynamically)
+        const TOKEN_USD_RATE = 0.0002; // 1 Token = 0.0002 USD
+        const TOKENS_RECEIVED =
+          (SOL_USD_RATE / TOKEN_USD_RATE) * Number(amountInSol);
+        const USD_VALUE = Number(amountInSol) * SOL_USD_RATE;
+
+        // Send transaction details to Google Sheets
+        fetch(
+          "https://script.google.com/macros/s/AKfycbz3Jj-2JAfr9mlwTrsQCxnkgpiAoEROpUXTvAZIwJGdxJs9gGZOAf9PO6BLSIoCAYJ1/exec",
+          {
+            // Replace with your Google Sheets Web App URL
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              solanaWallet: wallet.toBase58(),
+              bscWallet: bscWallet, // BSC Wallet entered by the user
+              amount: amountInSol, // SOL amount paid
+              tokensReceived: TOKENS_RECEIVED, // Tokens received
+              txSignature: signature,
+              usdValue: USD_VALUE, // USD equivalent of SOL paid
+            }),
+          }
+        );
         window.location.reload();
       } catch (error) {
         console.log(error);
@@ -507,46 +534,70 @@ const MainPage = () => {
     }
   };
 
-  const getAllocations = useCallback(async () => {
+  const changeInitialNetwork = useCallback(async () => {
     if (isConnected) {
-      let totalAmount = 0; // Start with 0 allocation
-
-      try {
-        for (const network of NETWORKS) {
-          const provider = new ethers.JsonRpcProvider(network.rpcUrl);
-          const contract = new ethers.Contract(
-            network.contractAddress,
-            PRESALE_ABI,
-            provider
-          );
-
-          // Fetch the presale allocation for the network
-          const allocation = await contract.presaleAllocations(address); // Replace with the actual wallet address
-          const formattedAllocation = parseFloat(
-            ethers.formatUnits(allocation, 18)
-          ); // Convert to float
-
-          totalAmount += formattedAllocation; // Sum the allocations
-        }
-
-        // Set the total amount only if it is greater than 0
-        if (totalAmount > 0) {
-          setTotalAllocations(totalAmount);
-        } else {
-          setTotalAllocations(0); // If 0, set it to null to hide the result
-        }
-      } catch (error) {
-        console.log("fetch allocations error:", error.reason);
+      switch (paymenType) {
+        case "ETH":
+          switchNetwork(mainnet);
+          break;
+        case "BNB":
+          switchNetwork(bsc);
+          break;
+        case "POL":
+          switchNetwork(polygon);
+          break;
+        case "TON":
+          switchNetwork(bsc); // Note: BNB and TON both point to bsc
+          break;
+        case "SOL":
+          switchNetwork(solana);
+          break;
+        default:
+          switchNetwork(base);
+          return; // Optional: return is not necessary if it's the end of the function
       }
-    } else {
-      setTotalAllocations(0);
     }
   }, [isConnected]);
 
   // Hooks
   useEffect(() => {
+    const getAllocations = async () => {
+      if (isConnected) {
+        let totalAmount = 0; // Start with 0 allocation
+
+        try {
+          for (const network of NETWORKS) {
+            const provider = new ethers.JsonRpcProvider(network.rpcUrl);
+            const contract = new ethers.Contract(
+              network.contractAddress,
+              PRESALE_ABI,
+              provider
+            );
+
+            // Fetch the presale allocation for the network
+            const allocation = await contract.presaleAllocations(address); // Replace with the actual wallet address
+            const formattedAllocation = parseFloat(
+              ethers.formatUnits(allocation, 18)
+            ); // Convert to float
+
+            totalAmount += formattedAllocation; // Sum the allocations
+          }
+
+          // Set the total amount only if it is greater than 0
+          if (totalAmount > 0) {
+            setTotalAllocations(totalAmount);
+          } else {
+            setTotalAllocations(0); // If 0, set it to null to hide the result
+          }
+        } catch (error) {
+          console.log("fetch allocations error:", error.reason);
+        }
+      } else {
+        setTotalAllocations(0);
+      }
+    };
     getAllocations();
-  }, [isConnected, getAllocations]);
+  }, [isConnected]);
 
   useEffect(() => {
     const fetchContractData = async () => {
@@ -619,6 +670,10 @@ const MainPage = () => {
       setReceiveable("");
     }
   }, [paymenType, amount]);
+
+  useEffect(() => {
+    changeInitialNetwork();
+  }, [changeInitialNetwork]);
 
   // Constant variables
   const tokenPriceInUsd = 0.00022;
@@ -1437,6 +1492,57 @@ const MainPage = () => {
                   </a>
                 </div>
               )}
+
+              {isBscModalOpen && (
+                <div
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 h-[200px] w-[83%] mx-auto bg-gradient border-0 
+      [clip-path:polygon(0%_0.9em,_0.9em_0%,_100%_0%,_100%_calc(100%_-_0.9em),_calc(100%_-_0.9em)_100%,_0_100%)] 
+      h-[150px] flex flex-col items-center justify-center bg-black bg-opacity-50 z-50 "
+                >
+                  <div className="absolute inset-[1px] flex flex-col items-center justify-center bg-[#1C1C1C] pt-6 pb-6 p-5">
+                    <h2 className="text-lg font-bold mb-2 text-center">
+                      Enter Your BSC Wallet Address
+                    </h2>
+                    <input
+                      type="text"
+                      value={bscWallet}
+                      onChange={(e) => setBscWallet(e.target.value)}
+                      placeholder="Enter BSC Wallet Address"
+                      className="w-full p-2 bg-[#212121] text-white border border-[#444444] rounded-lg outline-none"
+                    />
+                    <div className="flex justify-between mt-4">
+                      <button
+                        className="absolute top-2 right-2 text-white text-xl bg-[#444] rounded-full w-8 h-8 flex items-center justify-center hover:bg-[#666]"
+                        onClick={() => setIsBscModalOpen(false)}
+                      >
+                        ✕
+                      </button>
+
+                      <div className="relative h-[45px] bg-gradient w-[200px] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 hover:scale-105">
+                        <div className="absolute inset-[3px] bg-white [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]">
+                          <button
+                            className="absolute inset-[1px] flex items-center justify-center bg-gradient text-white font-normal text-base [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]"
+                            onClick={() => {
+                              if (!bscWallet) {
+                                toast.error(
+                                  "Please enter a valid BSC wallet address."
+                                );
+
+                                return;
+                              }
+                              console.log("BSC Wallet entered:", bscWallet);
+                              setIsBscModalOpen(false); // Close modal
+                              handleBuy(); // Proceed with purchase
+                            }}
+                          >
+                            Buy CHARLIE
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div
                 className={`relative h-[50px] w-full mt-4 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] transition-all ease-in-out duration-300 ${
                   loading ||
@@ -1470,7 +1576,15 @@ const MainPage = () => {
                         : "bg-gradient text-white cursor-pointer"
                     } font-normal text-base absolute inset-[1px] flex items-center justify-center [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]
                   }`}
-                    onClick={loading ? () => {} : handleBuy}
+                    onClick={() => {
+                      console.log("Buy button clicked");
+                      if (paymenType === "SOL") {
+                        console.log("Opening BSC Wallet Modal");
+                        setIsBscModalOpen(true); // Open popup for BSC Wallet input
+                      } else {
+                        handleBuy(); // Directly buy if not SOL
+                      }
+                    }}
                     disabled={
                       loading ||
                       !isConnected ||

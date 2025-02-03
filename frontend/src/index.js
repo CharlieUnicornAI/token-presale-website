@@ -4,7 +4,9 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { TranslatorProvider } from "./context/TranslatorContext";
-
+if (typeof BigInt === "undefined") {
+  global.BigInt = require("big-integer");
+}
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>

@@ -1,6 +1,5 @@
 import { BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
 import { ethers } from "ethers";
-
 import {
   TOKEN_CONTRACT_ADDRESS,
   PRESALE_CONTRACT_ADDRESS,
@@ -52,11 +51,14 @@ function useContract() {
   const { address, isConnected } = useAppKitAccount();
 
   const getProvider = () => {
+    if (!walletProvider) {
+      return null;
+    }
     return new BrowserProvider(walletProvider);
   };
 
   const getSigner = async (provider) => {
-    return provider.getSigner();
+    return await provider.getSigner();
   };
 
   const getNetworkConfig = async () => {
@@ -70,6 +72,7 @@ function useContract() {
         USDT_CONTRACT_ADDRESS,
         USDC_CONTRACT_ADDRESS,
         TOKEN_CONTRACT_ADDRESS, // Include TOKEN_CONTRACT_ADDRESS here
+        decimals,
       } = NETWORKS[chainId];
 
       return {
@@ -78,6 +81,7 @@ function useContract() {
         USDT_CONTRACT_ADDRESS,
         USDC_CONTRACT_ADDRESS,
         TOKEN_CONTRACT_ADDRESS, // Return TOKEN_CONTRACT_ADDRESS
+        decimals,
       };
     } else {
       throw new Error("Unsupported network.");
@@ -198,7 +202,7 @@ function useContract() {
     }
   };
 
-  const getProviders1 = () => {
+  const getProviders1 = async () => {
     if (walletProvider) {
       return new BrowserProvider(walletProvider);
     } else {
@@ -265,39 +269,41 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
+      if (provider) {
+        const network = await provider.getNetwork();
+        const { chainId } = network;
 
-      // Ensure we're connected to the correct network
-      const networkConfig = NETWORKS[chainId];
-      if (!networkConfig) {
-        throw new Error("Unsupported network.");
+        // Ensure we're connected to the correct network
+        const networkConfig = NETWORKS[chainId];
+        if (!networkConfig) {
+          throw new Error("Unsupported network.");
+        }
+
+        const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
+
+        // Get the signer for the contract transactions
+        const signer = await getSigner(provider);
+
+        // Get the contract instance
+        const contract = await getContract(
+          PRESALE_CONTRACT_ADDRESS,
+          PRESALE_ABI,
+          signer
+        );
+
+        // Fetch the unclaimed tokens for the user
+        const unclaimedTokens = await contract.getPresaleUnclaimed(address);
+        const formattedUnclaimedTokens = formatUnits(unclaimedTokens, 18); // Format the tokens
+
+        return formattedUnclaimedTokens;
       }
-
-      const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
-
-      // Get the signer for the contract transactions
-      const signer = await getSigner(provider);
-
-      // Get the contract instance
-      const contract = await getContract(
-        PRESALE_CONTRACT_ADDRESS,
-        PRESALE_ABI,
-        signer
-      );
-
-      // Fetch the unclaimed tokens for the user
-      const unclaimedTokens = await contract.getPresaleUnclaimed(address);
-      const formattedUnclaimedTokens = formatUnits(unclaimedTokens, 18); // Format the tokens
-
-      return formattedUnclaimedTokens;
+      return null;
     } catch (error) {
       // Handle any errors that may occur during the process
       console.error(
         "Error fetching presale allocation:",
         error.message || error
       );
-      return "Error fetching allocation"; // Return an error message if something goes wrong
     }
   };
 
@@ -310,51 +316,53 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
+      if (provider) {
+        const network = await provider.getNetwork();
+        const { chainId } = network;
 
-      // Ensure we're connected to the correct network
-      const { chain_id } = await getNetworkConfig(); // Get the correct chainId from the network config
-      if (chainId !== chain_id) {
-        throw new Error("Connected to the wrong network.");
+        // Ensure we're connected to the correct network
+        const { chain_id } = await getNetworkConfig(); // Get the correct chainId from the network config
+        if (chainId !== chain_id) {
+          throw new Error("Connected to the wrong network.");
+        }
+
+        // Get the signer for the contract transactions
+        const signer = await getSigner(provider);
+
+        // Fetch the appropriate contract address based on the network
+        const {
+          PRESALE_CONTRACT_ADDRESS,
+          USDT_CONTRACT_ADDRESS,
+          USDC_CONTRACT_ADDRESS,
+          TOKEN_CONTRACT_ADDRESS,
+        } = await getNetworkConfig();
+
+        // Get the token contract instance
+        const token = await getContract(
+          TOKEN_CONTRACT_ADDRESS,
+          TOKEN_ABI,
+          signer
+        );
+
+        // Fetch the user's token balance
+        const balance = await token.balanceOf(address);
+        const balanceInEth = formatUnits(balance, 18); // Format the user's balance
+
+        // Fetch the contract's token balance
+        const contractBalanceInEth = await token.balanceOf(
+          PRESALE_CONTRACT_ADDRESS
+        );
+        const contractBalance = formatUnits(contractBalanceInEth, 18); // Format the contract's balance
+
+        return {
+          balanceInEth,
+          contractBalance,
+        };
       }
-
-      // Get the signer for the contract transactions
-      const signer = await getSigner(provider);
-
-      // Fetch the appropriate contract address based on the network
-      const {
-        PRESALE_CONTRACT_ADDRESS,
-        USDT_CONTRACT_ADDRESS,
-        USDC_CONTRACT_ADDRESS,
-        TOKEN_CONTRACT_ADDRESS,
-      } = await getNetworkConfig();
-
-      // Get the token contract instance
-      const token = await getContract(
-        TOKEN_CONTRACT_ADDRESS,
-        TOKEN_ABI,
-        signer
-      );
-
-      // Fetch the user's token balance
-      const balance = await token.balanceOf(address);
-      const balanceInEth = formatUnits(balance, 18); // Format the user's balance
-
-      // Fetch the contract's token balance
-      const contractBalanceInEth = await token.balanceOf(
-        PRESALE_CONTRACT_ADDRESS
-      );
-      const contractBalance = formatUnits(contractBalanceInEth, 18); // Format the contract's balance
-
-      return {
-        balanceInEth,
-        contractBalance,
-      };
+      return { balanceInEth: 0, contractBalance: 0 };
     } catch (error) {
       // Handle any errors that may occur during the process
       console.error("Error fetching data:", error.message || error);
-      return { balanceInEth: 0, contractBalance: 0 }; // Return default values on error
     }
   };
 
@@ -363,18 +371,25 @@ function useContract() {
     if (!isConnected) return 0;
 
     const provider = getProvider();
-    const signer = await getSigner(provider);
-    const {
-      PRESALE_CONTRACT_ADDRESS,
-      USDT_CONTRACT_ADDRESS,
-      USDC_CONTRACT_ADDRESS,
-      TOKEN_CONTRACT_ADDRESS,
-    } = await getNetworkConfig();
+    if (provider) {
+      const signer = await getSigner(provider);
+      const {
+        PRESALE_CONTRACT_ADDRESS,
+        USDT_CONTRACT_ADDRESS,
+        USDC_CONTRACT_ADDRESS,
+        TOKEN_CONTRACT_ADDRESS,
+      } = await getNetworkConfig();
 
-    const token = await getContract(TOKEN_CONTRACT_ADDRESS, TOKEN_ABI, signer);
-    const balance = await token.balanceOf(address);
+      const token = await getContract(
+        TOKEN_CONTRACT_ADDRESS,
+        TOKEN_ABI,
+        signer
+      );
+      const balance = await token.balanceOf(address);
 
-    return formatUnits(balance, 18);
+      return formatUnits(balance, 18);
+    }
+    return 0;
   };
 
   const maxBalances = async () => {
@@ -431,34 +446,36 @@ function useContract() {
     try {
       // Get the provider and network information
       const provider = getProvider();
-      const network = await provider.getNetwork();
-      const { chainId } = network;
+      if (provider) {
+        const network = await provider.getNetwork();
+        const { chainId } = network;
 
-      // Ensure we're connected to the correct network
-      const networkConfig = NETWORKS[chainId]; // Get network config based on chainId
-      if (!networkConfig) {
-        throw new Error("Unsupported network.");
+        // Ensure we're connected to the correct network
+        const networkConfig = NETWORKS[chainId]; // Get network config based on chainId
+        if (!networkConfig) {
+          throw new Error("Unsupported network.");
+        }
+
+        const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
+
+        // Get the signer for the contract transactions
+        const signer = await getSigner(provider);
+
+        // Get the contract instance
+        const contract = await getContract(
+          PRESALE_CONTRACT_ADDRESS,
+          PRESALE_ABI,
+          signer
+        );
+
+        // Fetch the price per dollar and format it
+        const price = await contract.perDollarPrice();
+        return Number(formatUnits(price, 18)).toFixed(4); // Convert price and format to 4 decimal places
       }
-
-      const { PRESALE_CONTRACT_ADDRESS } = networkConfig; // Get the contract address for the current network
-
-      // Get the signer for the contract transactions
-      const signer = await getSigner(provider);
-
-      // Get the contract instance
-      const contract = await getContract(
-        PRESALE_CONTRACT_ADDRESS,
-        PRESALE_ABI,
-        signer
-      );
-
-      // Fetch the price per dollar and format it
-      const price = await contract.perDollarPrice();
-      return Number(formatUnits(price, 18)).toFixed(4); // Convert price and format to 4 decimal places
+      return null;
     } catch (error) {
       // Handle any errors that may occur during the process
-      console.error("Error fetching price:", error.message || error);
-      return "Error fetching price"; // Return an error message if something goes wrong
+      console.log("Error fetching price:", error.message || error);
     }
   };
 

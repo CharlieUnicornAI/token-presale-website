@@ -1,11 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { PER_USDT_TO_BNB } from "../contracts/contracts";
 import useContract from "../hooks/useContract";
 import { FaAngleDown } from "react-icons/fa";
 import CopyToClipboardButton from "./CoppyBtn";
-import { useAppKitAccount, useAppKitNetwork } from "@reown/appkit/react";
-import { PRESALE_CONTRACT_ADDRESS, PRESALE_ABI } from "../contracts/contracts";
+import {
+  useAppKitAccount,
+  useAppKitNetwork,
+  useAppKitProvider,
+  useDisconnect,
+} from "@reown/appkit/react";
+import { PRESALE_ABI } from "../contracts/contracts";
 import { ethers } from "ethers";
 import { useTonConnectUI } from "@tonconnect/ui-react";
 import { useCustomTonWallet } from "../context/TonWalletContext";
@@ -16,17 +21,16 @@ import "../responsive.css";
 import Spinner from "./Spinner";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
-import { base, bsc, polygon, mainnet } from "@reown/appkit/networks";
+import { base, bsc, polygon, mainnet, solana } from "@reown/appkit/networks";
 import { FaTelegram, FaTwitter, FaYoutube, FaFacebook } from "react-icons/fa";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import {
   PublicKey,
-  SystemProgram,
-  Transaction,
   LAMPORTS_PER_SOL,
+  Transaction,
+  SystemProgram,
 } from "@solana/web3.js";
-import * as web3 from "@solana/web3.js";
+import { useAppKitConnection } from "@reown/appkit-adapter-solana/react";
+import { appkitModal } from "../App";
 
 const MainPage = () => {
   const [paymenType, setPaymentType] = useState("ETH");
@@ -42,8 +46,6 @@ const MainPage = () => {
   const [loading, setLoading] = useState(false);
   const [totalUsdRaised, setTotalUsdRaised] = useState(null);
   const [tonTransactionLink, setTonTransactionLink] = useState(null);
-  const [txSig, setTxSig] = useState("");
-  const { sendTransaction } = useWallet();
   const [totalAllocations, setTotalAllocations] = useState(null); // Initialize state for total allocations
   const [fetchError, setFetchError] = useState(null); // State to hold any error message
   const { t } = useTranslation();
@@ -53,7 +55,6 @@ const MainPage = () => {
     maxBalances,
     getPrice,
     claimTokens,
-    getPresaleAllocation,
     getProvider,
   } = useContract();
   const { address, isConnected } = useAppKitAccount();
@@ -61,12 +62,10 @@ const MainPage = () => {
   const [tonConnectUI] = useTonConnectUI();
   const { isTonWalletConnected, friendlyAddress, tonBalance, sendTon } =
     useCustomTonWallet();
-  const { connection } = useConnection();
-  const { publicKey, connected, connect, disconnect, wallet } = useWallet();
-  const { setVisible } = useWalletModal();
-  const [solanaBalance, setSolanaBalance] = useState(null);
-  const allowedChainIds = [1, 137, 56, 8453]; // Example chain IDs for Ethereum, Polygon, Binance Smart Chain
   const currentYear = new Date().getFullYear();
+  const { connection } = useAppKitConnection();
+  const { walletProvider } = useAppKitProvider("solana");
+  const { disconnect } = useDisconnect();
 
   const NETWORKS = [
     {
@@ -89,77 +88,65 @@ const MainPage = () => {
 
   // Handle change or other events
   const handlePaymentTypechange = async (newPaymentType, isBase) => {
-    setPaymentType(newPaymentType);
-    setAmount("");
-    setReceiveable("");
+    if (isConnected) {
+      setPaymentType(newPaymentType);
+      setAmount("");
+      setReceiveable("");
 
-    // Define network IDs for Ethereum and Binance Smart Chain
-    const networks = {
-      ETH: { id: 1, name: "Ethereum Mainnet" },
-      BNB: { id: 56, name: "Binance Smart Chain" },
-      POL: { id: 137, name: "Polygon" },
-      BASE: { id: 8453, name: "Base" },
-    };
-
-    try {
-      // Check if the new payment type requires a network switch
-      if (isBase) {
-        switchNetwork(base);
-      } else {
-        if (newPaymentType === "BNB" && chainId !== networks.BNB.id) {
-          switchNetwork(bsc); // This will trigger a wallet popup
-        } else if (newPaymentType === "ETH" && chainId !== networks.ETH.id) {
-          switchNetwork(mainnet); // This will trigger a wallet popup
-        } else if (newPaymentType === "POL" && chainId !== networks.POL.id) {
-          switchNetwork(polygon); // This will trigger a wallet popup
+      // Define network IDs for Ethereum and Binance Smart Chain
+      const networks = {
+        ETH: { id: 1, name: "Ethereum Mainnet" },
+        BNB: { id: 56, name: "Binance Smart Chain" },
+        POL: { id: 137, name: "Polygon" },
+        BASE: { id: 8453, name: "Base" },
+      };
+      try {
+        if (newPaymentType === "SOL" && isConnected) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          appkitModal.open({ view: "Networks" });
+          toast.info("Please switch your current network into Solana");
+          appkitModal.switchNetwork(solana);
+        } else {
+          // Check if the new payment type requires a network switch
+          if (isBase) {
+            switchNetwork(base);
+          } else {
+            if (
+              (newPaymentType === "BNB" || newPaymentType === "TON") &&
+              chainId !== networks.BNB.id
+            ) {
+              switchNetwork(bsc); // This will trigger a wallet popup
+            } else if (
+              newPaymentType === "ETH" &&
+              chainId !== networks.ETH.id
+            ) {
+              switchNetwork(mainnet); // This will trigger a wallet popup
+            } else if (
+              newPaymentType === "POL" &&
+              chainId !== networks.POL.id
+            ) {
+              switchNetwork(polygon); // This will trigger a wallet popup
+            }
+          }
         }
+      } catch (error) {
+        console.error("Network switch failed:", error);
+        toast.error(
+          "Failed to switch network. Please change it manually in your wallet."
+        );
       }
-    } catch (error) {
-      console.error("Network switch failed:", error);
-      toast.error(
-        "Failed to switch network. Please change it manually in your wallet."
-      );
     }
-  };
-
-  // Helper function to get the network object based on the chain ID
-  const getTargetNetwork = (chainId) => {
-    const networks = {
-      1: { id: 1, name: "Ethereum Mainnet" }, // Example network objects
-      137: { id: 137, name: "Polygon" },
-      56: { id: 56, name: "Binance Smart Chain" },
-      8453: { id: 8453, name: "Base" },
-    };
-    return networks[chainId];
   };
 
   const handleTonConnect = () => {
     if (!isTonWalletConnected) {
+      if (!isConnected) {
+        toast.error("Please connect with your ETH wallet first");
+        return;
+      }
       tonConnectUI.openModal();
     } else {
       tonConnectUI.disconnect();
-    }
-  };
-
-  const handleSolanaWallet = async () => {
-    try {
-      if (connected) {
-        await disconnect();
-      } else {
-        setVisible(true); // ✅ Open the wallet selection modal first
-
-        // ✅ Wait for the user to select a wallet
-        const checkWalletSelected = setInterval(() => {
-          if (wallet) {
-            clearInterval(checkWalletSelected);
-            connect().catch((err) =>
-              console.error("Wallet connection failed:", err)
-            );
-          }
-        }, 500); // Check every 500ms if the user selected a wallet
-      }
-    } catch (error) {
-      console.error("Solana Wallet Connection Error:", error);
     }
   };
 
@@ -302,7 +289,7 @@ const MainPage = () => {
             fromAmount: tonAmount,
             toAmount: "",
             fromNetwork: "ton",
-            toNetwork: "base",
+            toNetwork: "bsc",
             flow: "standard",
             type: "",
             useRateId: "",
@@ -353,7 +340,7 @@ const MainPage = () => {
           fromCurrency: "ton",
           toCurrency: "usdc",
           fromNetwork: "ton",
-          toNetwork: "base",
+          toNetwork: "bsc",
           fromAmount: amount,
           address: usdcAddress,
           flow: "standard",
@@ -443,48 +430,50 @@ const MainPage = () => {
       }
       await handleTon(address, amount);
       return;
-    }
-
-    // Check if SOL is selected and Wallet is connected
-    else if (paymenType === "SOL") {
-      if (!connection || !publicKey) {
-        toast.error("Please connect your Solana wallet.");
+    } else if (paymenType === "SOL") {
+      if (!isConnected || !address || !connection) {
+        toast.error("Please connect your wallet.");
         setLoading(false);
         return;
       }
 
-      // Define the Owner Wallet Address where funds should be sent
-      const ownerWallet = new web3.PublicKey(
-        "ECUitdYwUjyJk5K7Rpg3YR9drFn6esvYq4vjHiAjn2gN"
-      );
+      const wallet = new PublicKey(address);
+      const balanceInLamports = await connection.getBalance(wallet);
+      const balance = balanceInLamports / LAMPORTS_PER_SOL;
 
-      // Check if the user has enough SOL
-      if (amount > solanaBalance) {
+      if (Number(amount) > balance) {
         toast.error("Not enough SOL balance.");
         setLoading(false);
         return;
       }
 
-      const transaction = new web3.Transaction();
-      const instruction = web3.SystemProgram.transfer({
-        fromPubkey: publicKey, // User's Wallet Address
-        lamports: amount * web3.LAMPORTS_PER_SOL, // Convert SOL to Lamports
-        toPubkey: ownerWallet, // Owner's Wallet Address
-      });
+      // Define the Owner Wallet Address where funds should be sent
+      const ownerWallet = new PublicKey(
+        "ECUitdYwUjyJk5K7Rpg3YR9drFn6esvYq4vjHiAjn2gN"
+      );
 
-      transaction.add(instruction);
+      const latestBlockhash = await connection.getLatestBlockhash();
+      const lamportsToSend = Math.round(Number(amount) * LAMPORTS_PER_SOL);
+
+      const transaction = new Transaction({
+        feePayer: wallet,
+        recentBlockhash: latestBlockhash?.blockhash,
+      }).add(
+        SystemProgram.transfer({
+          fromPubkey: wallet,
+          toPubkey: ownerWallet, // destination address
+          lamports: lamportsToSend,
+        })
+      );
 
       try {
         // Send transaction
-        const signature = await sendTransaction(transaction, connection);
-        setTxSig(signature);
-
+        const signature = await walletProvider.sendTransaction(
+          transaction,
+          connection
+        );
         toast.success("Transaction Successful! 🎉");
-        console.log("Transaction Signature: ", signature);
-
-        // Update Balance
-        const newBalance = solanaBalance - amount;
-        setSolanaBalance(newBalance);
+        window.location.reload();
       } catch (error) {
         console.log(error);
         toast.error("Transaction failed!");
@@ -518,9 +507,8 @@ const MainPage = () => {
     }
   };
 
-  // Hooks
-  useEffect(() => {
-    const fetchAllocations = async () => {
+  const getAllocations = useCallback(async () => {
+    if (isConnected) {
       let totalAmount = 0; // Start with 0 allocation
 
       try {
@@ -548,15 +536,17 @@ const MainPage = () => {
           setTotalAllocations(0); // If 0, set it to null to hide the result
         }
       } catch (error) {
-        console.error("Error fetching presale allocation:", error.message);
-        setFetchError(
-          "Failed to fetch presale allocations. Please try again later."
-        );
+        console.log("fetch allocations error:", error.reason);
       }
-    };
+    } else {
+      setTotalAllocations(0);
+    }
+  }, [isConnected]);
 
-    fetchAllocations();
-  }, []); // Empty dependency array to run once when the component mounts
+  // Hooks
+  useEffect(() => {
+    getAllocations();
+  }, [isConnected, getAllocations]);
 
   useEffect(() => {
     const fetchContractData = async () => {
@@ -581,12 +571,19 @@ const MainPage = () => {
           totalTokensSoldSum += parseFloat(ethers.formatUnits(tokensSold, 18));
         }
 
+        const totalTokensSoldReSum = parseFloat(
+          14031.11 / 50 + totalTokensSoldSum
+        ).toFixed(2);
+
         // Calculate total USD raised
-        const usdRaised = (totalTokensSoldSum * tokenPriceInUsd).toFixed(2);
+        const usdRaised = (
+          totalTokensSoldSum * tokenPriceInUsd +
+          14031.11
+        ).toFixed(2);
 
         // Update state
         setTotalUsers(totalUsersSum);
-        setTotalTokensSold(totalTokensSoldSum.toFixed(2));
+        setTotalTokensSold(totalTokensSoldReSum);
         setTotalUsdRaised(usdRaised);
       } catch (error) {
         console.error("Error fetching contract data:", error.message);
@@ -597,22 +594,6 @@ const MainPage = () => {
     fetchContractData();
   }, []);
 
-  // Fetch Solana wallet balance when connected
-  useEffect(() => {
-    const fetchSolanaBalance = async () => {
-      if (connected && publicKey) {
-        try {
-          const balanceInLamports = await connection.getBalance(publicKey);
-          setSolanaBalance(balanceInLamports / 1e9); // Convert to SOL
-        } catch (error) {
-          console.error("Error fetching Solana balance:", error);
-        }
-      }
-    };
-
-    fetchSolanaBalance();
-  }, [connected, publicKey, connection]);
-
   useEffect(() => {
     const _getPrice = async () => {
       const _price = await getPrice();
@@ -620,11 +601,8 @@ const MainPage = () => {
     };
     if (isConnected) {
       _getPrice();
-      if (paymenType === "ETH") {
-        switchNetwork(mainnet);
-      }
     }
-  }, [isConnected]);
+  }, [isConnected, getPrice]);
 
   useEffect(() => {
     const _balance = async () => {
@@ -637,29 +615,10 @@ const MainPage = () => {
   }, [address]);
 
   useEffect(() => {
-    if (isConnected && !allowedChainIds.includes(chainId)) {
-      const targetNetwork = getTargetNetwork(chainId); // Function to get the correct network object
-      if (targetNetwork) {
-        switchNetwork(targetNetwork);
-      } else {
-        toast.error(
-          "Unsupported network. Please switch to a supported network."
-        );
-      }
-    }
-  }, [isConnected, chainId]);
-
-  useEffect(() => {
     if (paymenType === "TON" && parseFloat(amount) < 1) {
       setReceiveable("");
     }
   }, [paymenType, amount]);
-
-  useEffect(() => {
-    if (!isConnected) {
-      toast.info("Please connect your wallet !");
-    }
-  }, [isConnected]);
 
   // Constant variables
   const tokenPriceInUsd = 0.00022;
@@ -1110,9 +1069,7 @@ const MainPage = () => {
           </div>
           <div
             className={`relative transition-all presale-buy ease-in-out duration-300 ${
-              paymenType === "TON" || paymenType === "SOL"
-                ? "h-[660px]"
-                : "h-[600px]"
+              paymenType === "TON" ? "h-[660px]" : "h-[600px]"
             } bg-gradient [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] w-full xl:w-[40%] mt-8 xl:mt-0`}
           >
             <div className="absolute [clip-path:polygon(0%_1.5em,_1.5em_0%,_100%_0%,_100%_calc(100%_-_1.5em),_calc(100%_-_1.5em)_100%,_0_100%)] bg-[#1C1C1C]  flex flex-col items-center justify-center inset-[1px] px-4 md:px-10 py-10">
@@ -1238,7 +1195,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("USDT", true);
+                        handlePaymentTypechange("USDT");
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1252,7 +1209,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("USDC", true);
+                        handlePaymentTypechange("USDC");
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1280,7 +1237,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("SOL", true);
+                        handlePaymentTypechange("SOL");
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1294,7 +1251,7 @@ const MainPage = () => {
                     <button
                       onClick={(e) => {
                         setIsPaymentDropdownOpen(false);
-                        handlePaymentTypechange("TON", true);
+                        handlePaymentTypechange("TON");
                       }}
                       className={`flex items-center sm:space-x-2 font-normal hover:bg-custom-gradient-button text-white hover:bg- px-[.50rem] py-2 sm:px-4 sm:py-2 shadow-md`}
                     >
@@ -1330,28 +1287,6 @@ const MainPage = () => {
                     </div>
                   </div>
                 )}
-                {paymenType === "SOL" && (
-                  <div
-                    className="mb-2 [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] relative bg-custom-gradient-button 
-h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
-                  >
-                    <div className="ton [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-white inset-[3px]">
-                      <button
-                        className="[clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)] absolute bg-current inset-[1px] text-white"
-                        onClick={handleSolanaWallet}
-                      >
-                        {connected
-                          ? `Disconnect | ${publicKey
-                              ?.toBase58()
-                              .substring(0, 4)}... | ${
-                              solanaBalance | "Loading..."
-                            } SOL`
-                          : "Connect Solana Wallet"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Input Fields */}
                 <div>
                   <div className="text-white mb-2 flex justify-between">
@@ -1507,7 +1442,8 @@ h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
                   loading ||
                   !isConnected ||
                   paymenType === "CARD" ||
-                  (paymenType === "TON" && !isTonWalletConnected)
+                  (paymenType === "TON" && !isTonWalletConnected) ||
+                  (paymenType === "SOL" && !connection)
                     ? "bg-[#1C1C1C]"
                     : "bg-gradient hover:scale-105"
                 }`}
@@ -1517,7 +1453,8 @@ h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
                     loading ||
                     !isConnected ||
                     paymenType === "CARD" ||
-                    (paymenType === "TON" && !isTonWalletConnected)
+                    (paymenType === "TON" && !isTonWalletConnected) ||
+                    (paymenType === "SOL" && !connection)
                       ? "bg-[#444444]"
                       : "bg-white"
                   } inset-[3px] [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]`}
@@ -1527,7 +1464,8 @@ h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
                       loading ||
                       !isConnected ||
                       paymenType === "CARD" ||
-                      (paymenType === "TON" && !isTonWalletConnected)
+                      (paymenType === "TON" && !isTonWalletConnected) ||
+                      (paymenType === "SOL" && !connection)
                         ? "bg-[#1C1C1C] text-[#444444] cursor-not-allowed"
                         : "bg-gradient text-white cursor-pointer"
                     } font-normal text-base absolute inset-[1px] flex items-center justify-center [clip-path:polygon(0%_1em,_1em_0%,_100%_0%,_100%_calc(100%_-_1em),_calc(100%_-_1em)_100%,_0_100%)]
@@ -1537,7 +1475,8 @@ h-[50px] hover:scale-105 transition-all ease-in-out duration-300 z-0"
                       loading ||
                       !isConnected ||
                       paymenType === "CARD" ||
-                      (paymenType === "TON" && !isTonWalletConnected)
+                      (paymenType === "TON" && !isTonWalletConnected) ||
+                      (paymenType === "SOL" && !connection)
                     }
                   >
                     {loading ? "Almost Done 😉" : t("buy")}

@@ -15,6 +15,7 @@ const initialTonWalletContextValues = {
   tonBalance: 0,
   tonPrice: null,
   currentNetwork: null,
+  tonWalletName: null,
   sendTon: async (amount, recipient) => {},
 };
 
@@ -35,6 +36,7 @@ export const TonWalletProvider = ({ children }) => {
   const [tonBalance, setTonBalance] = useState(0);
   const [tonPrice, setTonPrice] = useState(null);
   const [currentNetwork, setCurrentNetwork] = useState(null);
+  const [tonWalletName, setTonWalletName] = useState(null);
   const userFriendlyAddress = useTonAddress();
   const rawAddress = useTonAddress(false);
   const [tonConnectUI] = useTonConnectUI();
@@ -51,6 +53,7 @@ export const TonWalletProvider = ({ children }) => {
     if (tonConnectUI.connected) {
       setFriendlyAddress(userFriendlyAddress);
       setRAddress(rawAddress);
+      setTonWalletName(tonConnectUI.wallet.name);
     } else {
       setFriendlyAddress(null);
       setRAddress(null);
@@ -103,6 +106,7 @@ export const TonWalletProvider = ({ children }) => {
         rAddress,
         tonBalance,
         tonPrice,
+        tonWalletName,
         sendTon,
       }}
     >

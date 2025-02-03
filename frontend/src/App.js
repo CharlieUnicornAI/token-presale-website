@@ -2,39 +2,33 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { createAppKit } from "@reown/appkit/react";
 import { EthersAdapter } from "@reown/appkit-adapter-ethers";
-import { base, mainnet, bsc, polygon } from "@reown/appkit/networks";
+import { mainnet, base, bsc, polygon, solana } from "@reown/appkit/networks";
+import { SolanaAdapter } from "@reown/appkit-adapter-solana/react";
 import RoutesFile from "./RoutesFile";
 import "./App.css";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import { TonWalletProvider } from "./context/TonWalletContext";
-import "@solana/wallet-adapter-react-ui/styles.css"; // ✅ Ensure wallet modal styles are imported
-import {
-  ConnectionProvider,
-  WalletProvider,
-} from "@solana/wallet-adapter-react";
-import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+// import { AppKitProvider } from "./AppkitProvider";
 import {
   PhantomWalletAdapter,
-  TrustWalletAdapter,
   AlphaWalletAdapter,
-  BitgetWalletAdapter,
-  BitpieWalletAdapter,
   CloverWalletAdapter,
   AvanaWalletAdapter,
-  Coin98WalletAdapter,
-  CoinbaseWalletAdapter,
-  CoinhubWalletAdapter,
   FractalWalletAdapter,
   HuobiWalletAdapter,
   HyperPayWalletAdapter,
   KeystoneWalletAdapter,
+  SolflareWalletAdapter,
+  SolongWalletAdapter,
+  LedgerWalletAdapter,
+  SpotWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
 // 1. Get projectId
 const projectId = "2107c00a7b77ee5371a8e43b5c13a4e6";
 
 // 2. Set the networks
-const networks = [base, mainnet, bsc, polygon];
+const networks = [mainnet, base, bsc, polygon, solana];
 
 // 3. Create a metadata object - optional
 const metadata = {
@@ -44,9 +38,26 @@ const metadata = {
   icons: ["/public/logo.png"],
 };
 
+const wallets = [
+  new PhantomWalletAdapter(),
+  new AlphaWalletAdapter(),
+  new AvanaWalletAdapter(),
+  new CloverWalletAdapter(),
+  new FractalWalletAdapter(),
+  new HuobiWalletAdapter(),
+  new HyperPayWalletAdapter(),
+  new KeystoneWalletAdapter(),
+  new SolflareWalletAdapter(),
+  new SolongWalletAdapter(),
+  new SpotWalletAdapter(),
+  new LedgerWalletAdapter(),
+];
+
+const solanaWeb3JsAdapter = new SolanaAdapter({ wallets });
+
 // 4. Create a AppKit instance
-createAppKit({
-  adapters: [new EthersAdapter()],
+export const appkitModal = createAppKit({
+  adapters: [new EthersAdapter(), solanaWeb3JsAdapter],
   networks,
   metadata,
   projectId,
@@ -56,24 +67,6 @@ createAppKit({
     email: false,
   },
 });
-
-// 5. Setup Solana wallet adapters
-const wallets = [
-  new PhantomWalletAdapter(),
-  new TrustWalletAdapter(),
-  new AlphaWalletAdapter(),
-  new AvanaWalletAdapter(),
-  new BitgetWalletAdapter(),
-  new BitpieWalletAdapter(),
-  new CloverWalletAdapter(),
-  new Coin98WalletAdapter(),
-  new CoinbaseWalletAdapter(),
-  new CoinhubWalletAdapter(),
-  new FractalWalletAdapter(),
-  new HuobiWalletAdapter(),
-  new HyperPayWalletAdapter(),
-  new KeystoneWalletAdapter(),
-];
 
 const isTonConnectSdkError = (error) => {
   return error && error.code && error.code.startsWith("TON_CONNECT_");
@@ -89,13 +82,7 @@ function App() {
   return (
     <TonConnectUIProvider manifestUrl="https://charlieunicornai-sale.eu/tonconnect-manifest.json">
       <TonWalletProvider>
-        <ConnectionProvider endpoint="https://holy-alpha-haze.solana-mainnet.quiknode.pro/c88b09f136b6fafab638cb0dc2f2c95aa6ec3150/">
-          <WalletProvider wallets={wallets} autoConnect>
-            <WalletModalProvider>
-              <RoutesFile />
-            </WalletModalProvider>
-          </WalletProvider>
-        </ConnectionProvider>
+        <RoutesFile />
       </TonWalletProvider>
       <ToastContainer theme="dark" />
     </TonConnectUIProvider>

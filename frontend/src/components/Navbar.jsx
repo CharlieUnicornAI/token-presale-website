@@ -14,17 +14,8 @@ const Navbar = () => {
   const { open } = useAppKit();
   const [active, setActive] = useState("home");
   const { pathname } = useLocation();
-  const { address, isConnected, caipAddress, status } = useAppKitAccount();
+  const { address, isConnected} = useAppKitAccount();
   const { t } = useTranslation();
-
-  const notify = () => toast.success("NO CONTENT FOUND");
-  const downloadWhitepaper = () => {
-    // Replace 'path-to-whitepaper.pdf' with your actual file path or URL
-    const link = document.createElement("a");
-    link.href = "/path-to-whitepaper.pdf"; // Adjust path as needed
-    link.download = "whitepaper.pdf"; // Name of the downloaded file
-    link.click();
-  };
 
   useEffect(() => {
     if (pathname.includes("about")) {

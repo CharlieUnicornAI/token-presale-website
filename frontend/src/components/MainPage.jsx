@@ -89,6 +89,7 @@ const MainPage = () => {
   // Handle change or other events
   const handlePaymentTypechange = async (newPaymentType, isBase) => {
     if (isConnected) {
+      debugger;
       setPaymentType(newPaymentType);
       setAmount("");
       setReceiveable("");
@@ -417,14 +418,14 @@ const MainPage = () => {
         setLoading(false);
         return;
       }
-      if (!isConnected || chainId !== base.id) {
+      if (!isConnected || chainId !== bsc.id) {
         toast.info("Please connect your ETH wallet");
         setLoading(false);
         return;
       }
       const ethBalance = await fetchBalance();
       if (parseFloat(ethBalance) < 0.00005) {
-        toast.error("You don't have enough ETH(BASE) fee");
+        toast.error("You don't have enough BNB fee");
         setLoading(false);
         return;
       }
@@ -486,14 +487,13 @@ const MainPage = () => {
         fetch(
           "https://script.google.com/macros/s/AKfycbz3Jj-2JAfr9mlwTrsQCxnkgpiAoEROpUXTvAZIwJGdxJs9gGZOAf9PO6BLSIoCAYJ1/exec",
           {
-            // Replace with your Google Sheets Web App URL
             method: "POST",
             mode: "no-cors",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               solanaWallet: wallet.toBase58(),
               bscWallet: bscWallet, // BSC Wallet entered by the user
-              amount: amountInSol, // SOL amount paid
+              amount: amountInSol.toString(), // SOL amount paid
               tokensReceived: TOKENS_RECEIVED, // Tokens received
               txSignature: signature,
               usdValue: USD_VALUE, // USD equivalent of SOL paid
@@ -562,42 +562,43 @@ const MainPage = () => {
   // Hooks
   useEffect(() => {
     const getAllocations = async () => {
-      if (isConnected) {
-        let totalAmount = 0; // Start with 0 allocation
+      if (paymenType !== "SOL") {
+        if (isConnected) {
+          let totalAmount = 0; // Start with 0 allocation
+          try {
+            for (const network of NETWORKS) {
+              const provider = new ethers.JsonRpcProvider(network.rpcUrl);
+              const contract = new ethers.Contract(
+                network.contractAddress,
+                PRESALE_ABI,
+                provider
+              );
 
-        try {
-          for (const network of NETWORKS) {
-            const provider = new ethers.JsonRpcProvider(network.rpcUrl);
-            const contract = new ethers.Contract(
-              network.contractAddress,
-              PRESALE_ABI,
-              provider
-            );
+              // Fetch the presale allocation for the network
+              const allocation = await contract.presaleAllocations(address); // Replace with the actual wallet address
+              const formattedAllocation = parseFloat(
+                ethers.formatUnits(allocation, 18)
+              ); // Convert to float
 
-            // Fetch the presale allocation for the network
-            const allocation = await contract.presaleAllocations(address); // Replace with the actual wallet address
-            const formattedAllocation = parseFloat(
-              ethers.formatUnits(allocation, 18)
-            ); // Convert to float
+              totalAmount += formattedAllocation; // Sum the allocations
+            }
 
-            totalAmount += formattedAllocation; // Sum the allocations
+            // Set the total amount only if it is greater than 0
+            if (totalAmount > 0) {
+              setTotalAllocations(totalAmount);
+            } else {
+              setTotalAllocations(0); // If 0, set it to null to hide the result
+            }
+          } catch (error) {
+            console.log("fetch allocations error:", error.reason);
           }
-
-          // Set the total amount only if it is greater than 0
-          if (totalAmount > 0) {
-            setTotalAllocations(totalAmount);
-          } else {
-            setTotalAllocations(0); // If 0, set it to null to hide the result
-          }
-        } catch (error) {
-          console.log("fetch allocations error:", error.reason);
+        } else {
+          setTotalAllocations(0);
         }
-      } else {
-        setTotalAllocations(0);
       }
     };
     getAllocations();
-  }, [isConnected]);
+  }, [isConnected, chainId]);
 
   useEffect(() => {
     const fetchContractData = async () => {
@@ -622,9 +623,8 @@ const MainPage = () => {
           totalTokensSoldSum += parseFloat(ethers.formatUnits(tokensSold, 18));
         }
 
-        const totalTokensSoldReSum = parseFloat(
-          14031.11 / 50 + totalTokensSoldSum
-        ).toFixed(2);
+        const totalTokensSoldReSum =
+          14031.11 * 5000 + parseFloat(totalTokensSoldSum);
 
         // Calculate total USD raised
         const usdRaised = (
@@ -634,7 +634,7 @@ const MainPage = () => {
 
         // Update state
         setTotalUsers(totalUsersSum);
-        setTotalTokensSold(totalTokensSoldReSum);
+        setTotalTokensSold(parseFloat(totalTokensSoldReSum).toFixed(2));
         setTotalUsdRaised(usdRaised);
       } catch (error) {
         console.error("Error fetching contract data:", error.message);
@@ -684,6 +684,7 @@ const MainPage = () => {
       role: "CEO",
       photo: "ceo.jpg",
       flag: "pl.svg",
+      flag_eu: "eu.svg",
       linkedin:
         "https://pl.linkedin.com/in/%C5%82ukasz-szymborski-8bab38205?utm_source=share&utm_medium=member_mweb&utm_campaign=share_via&utm_content=profile",
     },
@@ -692,12 +693,14 @@ const MainPage = () => {
       role: "Programmer & Manager",
       photo: "pm1.jpg",
       flag: "pl.svg",
+      flag_eu: "eu.svg",
     },
     {
       name: "Arkadiusz Gasewicz",
       role: "Blockchain Developer",
       photo: "pm2.jpg",
       flag: "pl.svg",
+      flag_eu: "eu.svg",
     },
     {
       name: "Judy",
@@ -709,6 +712,7 @@ const MainPage = () => {
       name: "Pah",
       role: "Blockchain Developer",
       photo: "pah.jpg",
+      flag: "ng.svg",
     },
   ];
 
@@ -1746,6 +1750,13 @@ const MainPage = () => {
                         src={`/flags/${member.flag}`}
                         alt={member.name}
                         className={`w-6 ${member.linkedin && "ml-4"}`}
+                      />
+                    )}
+                    {member.flag_eu && (
+                      <img
+                        src={`/flags/${member.flag_eu}`}
+                        alt="EU"
+                        className={`w-7 ${member.flag && "ml-4"}`}
                       />
                     )}
                   </div>
